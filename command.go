@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-type Action func(*Application, *Command) error
+type Action func(*Application, *Command, interface{}) (interface{}, error)
 type CommandValidator func(*Application, *Command) error
 
 type Command struct {
@@ -174,9 +174,11 @@ func (c *Command) ValidateWrapper(app *Application) error {
 	return nil
 }
 
-func (c *Command) ActionWrapper(app *Application) error {
+func (c *Command) ActionWrapper(app *Application, in_data interface{}) (interface{}, error) {
+	var data interface{} = nil
+	var err error = nil
 	if c.Action != nil {
-		return c.Action(app, c)
+		data, err = c.Action(app, c, in_data)
 	}
-	return nil
+	return data, err
 }

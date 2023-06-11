@@ -186,13 +186,13 @@ func (ctx *ParseContext) processLongFlag(flag_token string) error {
 			// flag value must be next cli argument
 			flag_value, ok = ctx.popCliArg()
 			if !ok {
-				templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Name: flag_name, Prefix: "--", Extra: flag_value})
+				templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Name: flag_name, Value: flag_value})
 			}
 		}
 	}
 	err := flag.SetValue(flag_value)
 	if err != nil {
-		return templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Name: flag_name, Prefix: "--", Extra: flag_value})
+		return templateManager.makeError("FlagValidationFailed", FlagTemplateContext{Name: flag_name, Value: flag_value, Extra: err.Error()})
 	}
 
 	return nil
@@ -223,12 +223,12 @@ func (ctx *ParseContext) processShortFlag(flag_token string) error {
 					// next argument is a flag value
 					flag_value, ok = ctx.popCliArg()
 					if !ok {
-						return templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Name: string(r), Prefix: "-"})
+						return templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Short: r, Prefix: "-"})
 					}
 				}
 				err := flag.SetValue(flag_value)
 				if err != nil {
-					return templateManager.makeError("UnexpectedFlagValueTemplate", FlagTemplateContext{Name: string(runes[i-1]), Prefix: "-", Extra: flag_value})
+					return templateManager.makeError("FlagValidationFailed", FlagTemplateContext{Short: r, Value: flag_value, Extra: err.Error()})
 				}
 				return nil
 			}
@@ -340,9 +340,11 @@ func (ctx *ParseContext) validate(app *Application) error {
 }
 
 func (ctx *ParseContext) execute(app *Application) error {
+	var data interface{} = nil
+	var err error
 	cmd := ctx.CurrentCommand
 	for cmd != nil {
-		err := cmd.ActionWrapper(app)
+		data, err = cmd.ActionWrapper(app, data)
 		if err != nil {
 			return err
 		}

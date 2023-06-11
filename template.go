@@ -33,6 +33,7 @@ func (f TokenTemplateContext) GetType() string {
 type FlagTemplateContext struct {
 	Name   string
 	Short  rune
+	Value  string
 	Extra  string
 	Prefix string
 }

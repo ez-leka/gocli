@@ -24,10 +24,16 @@ var getCmd = gocli.Command{
 	
 		`,
 	Flags: []gocli.IFlag{
-		&gocli.Flag[gocli.List]{
+		&gocli.Flag[[]gocli.File]{
 			Name:    "filename",
 			Short:   'f',
 			Usage:   "yaml or json file (or files, if wildcard) identifying resources to delete",
+			Default: "",
+		},
+		&gocli.Flag[gocli.Email]{
+			Name:    "email",
+			Short:   'e',
+			Usage:   "email",
 			Default: "",
 		},
 		&gocli.Flag[gocli.Bool]{
@@ -57,7 +63,7 @@ var getCmd = gocli.Command{
 			Required: true,
 			Usage:    "type of the resource to get",
 		},
-		&gocli.Arg[gocli.List]{
+		&gocli.Arg[[]gocli.String]{
 			Name:  "resource-name",
 			Usage: "Name of the resource",
 		},
@@ -84,7 +90,7 @@ var createCmd = gocli.Command{
 		{{.AppName}} {{.Name}} function func1 --image kontainapp/pytorch-demo-cpu --port 8080 --shapshot --warmup_urls '{"url":"/", "method":"GET"}'    
 		`,
 	Flags: []gocli.IFlag{
-		&gocli.Flag[gocli.List]{
+		&gocli.Flag[[]gocli.String]{
 			Name:    "filename",
 			Usage:   "yaml or json file (or files, if wildcard) identifying resources to delete",
 			Default: "",
@@ -114,17 +120,18 @@ var deleteCmd = gocli.Command{
 		 
 		`,
 	Flags: []gocli.IFlag{
-		&gocli.Flag[gocli.List]{
+		&gocli.Flag[[]gocli.String]{
 			Name:             "filename",
 			Usage:            "Filename, directory, or URL to files to use to delete resources",
 			Default:          "",
 			ValidationGroups: []string{"files"},
 			Required:         true,
 		},
-		&gocli.Flag[gocli.List]{
+		&gocli.Flag[gocli.OneOf]{
 			Name:     "output",
 			Short:    'o',
 			Usage:    "Output format",
+			Hints:    []string{"json", "table", "yaml"},
 			Default:  "table",
 			Required: false,
 		},
@@ -138,7 +145,7 @@ var deleteCmd = gocli.Command{
 			Required:         true,
 			Placeholder:      "type",
 		},
-		&gocli.Arg[gocli.List]{
+		&gocli.Arg[[]gocli.String]{
 			Name:             "resource-name",
 			Usage:            "Name of the resource",
 			ValidationGroups: []string{"resourses"},
@@ -149,10 +156,10 @@ var deleteCmd = gocli.Command{
 
 func main() {
 
-	testHelpFlag()
+	//testHelpFlag()
 	// testHelpCommand()
-	// testFlagArgumentParsing()
-	// testValidationGrouping()
+	//testFlagArgumentParsing()
+	testValidationGrouping()
 
 }
 func makeApp() *gocli.Application {
@@ -224,11 +231,14 @@ func testFlagArgumentParsing() {
 	app.Version = "v1.2.3"
 	var err error
 
-	args := []string{"test", "get", "nodes", "-ftest.txt", "-f=test2.txt", "-f", "test3.txt", "--filename=test4.txt", "--filename", "test5.txt", "-vaftest6.txt", "-vaf=test6.txt", "-vaf", "test7.txt", "-vfa", "test8.txt", "node1,node2", "node3"}
+	args := []string{"test", "get", "nodes", "-e", "my@gnode.org", "-ftest25.txt", "-f=test2.txt", "-f", "test3.txt", "--filename=test4.txt", "--filename", "test5.txt", "-vaftest6.txt", "-vaf=test6.txt", "-vaf", "test7.txt", "-vfa", "test8.txt", "node1,node2", "node3"}
 	err = app.Run(args)
 	if err != nil {
 		fmt.Println("FAILED:", err)
 	} else {
+
+		files, _ := app.GetListFlag("filename")
+		fmt.Println(files)
 		fmt.Println("PASSED")
 	}
 }
@@ -243,7 +253,7 @@ func testValidationGrouping() {
 		Description: "update resources by file names, stdin, resources and names",
 		Usage: `
 			
-			JSON and YAML formats are accepted. Only one type of argument may be specified: file names or resources and names,
+		JSON and YAML formats are accepted. Only one type of argument may be specified: file names or resources and names
 		
 		Examples:
 			# Update a resource using the type and name specified in resourse.json
@@ -254,17 +264,18 @@ func testValidationGrouping() {
 			 
 			`,
 		Flags: []gocli.IFlag{
-			&gocli.Flag[gocli.List]{
+			&gocli.Flag[[]gocli.File]{
 				Name:             "filename",
 				Short:            'f',
 				Usage:            "Filename, directory, or URL to files to use to delete resources",
 				Default:          "",
 				ValidationGroups: []string{"file"},
 			},
-			&gocli.Flag[gocli.String]{
+			&gocli.Flag[gocli.OneOf]{
 				Name:    "output",
 				Short:   'o',
 				Usage:   "output format",
+				Hints:   []string{"json", "table", "yaml"},
 				Default: "table",
 				// this flag does not specify validation group - belongs to all of them
 			},
@@ -273,10 +284,10 @@ func testValidationGrouping() {
 			&gocli.Arg[gocli.String]{
 				Name:             "resource-type",
 				Usage:            "One of node or function",
-				Hints:            []string{"node(s)", "function(s)", "user(s)", "metrics"},
+				Hints:            []string{"node(s)", "function(s)", "user(s)"},
 				ValidationGroups: []string{"resourse"},
 			},
-			&gocli.Arg[gocli.List]{
+			&gocli.Arg[[]gocli.String]{
 				Name:             "resource-name",
 				Usage:            "Name of the resource",
 				ValidationGroups: []string{"resourse"},
@@ -306,7 +317,7 @@ func testValidationGrouping() {
 	}
 
 	// must fail as both are present
-	args = []string{"test", "update", "-f", "resourse.json", "resourse", "name"}
+	args = []string{"test", "update", "--help", "-f", "resourse.json", "resourse", "name"}
 	err = app.Run(args)
 	if err != nil {
 		fmt.Println("PASSED:", err)

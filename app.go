@@ -106,14 +106,14 @@ func (a *Application) GetListArg(name string) ([]string, error) {
 	// find argument by name
 	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
 	if idx < 0 {
-		templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+		return nil, templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
 	}
 	arg := a.context.arguments_lookup[idx]
 
-	if IsType[List](arg) || IsType[OneOfList](arg) {
+	if arg.IsCumulative() {
 		return arg.GetValue().([]string), nil
 	}
-	return []string{}, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
 }
 
 func (a *Application) GetBoolFlag(name string) (bool, error) {
@@ -158,10 +158,10 @@ func (a *Application) GetListFlag(name string) ([]string, error) {
 	if !ok {
 		return []string{}, templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
 	}
-	if IsType[List](f) || IsType[OneOfList](f) {
+	if f.IsCumulative() {
 		return f.GetValue().([]string), nil
 	}
-	return []string{}, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
 
 }
 
@@ -284,12 +284,12 @@ func (a *Application) Init() error {
 			Name:  templateManager.GetMessage("HelpCommandAndFlagName"),
 			Usage: templateManager.GetMessage("HelpCommandUsage"),
 			Args: []IArg{
-				&Arg[List]{
+				&Arg[[]String]{
 					Name:  command_arg_name,
 					Usage: templateManager.GetMessage("HelpCommandArgUsage"),
 				},
 			},
-			Action: func(app *Application, c *Command) error {
+			Action: func(app *Application, c *Command, in_data interface{}) (interface{}, error) {
 				command, err := a.GetListArg(command_arg_name)
 				if err != nil {
 					a.printUsage(nil)
@@ -298,7 +298,7 @@ func (a *Application) Init() error {
 
 				a.printUsage(nil)
 				a.terminate(0)
-				return nil
+				return nil, nil
 			},
 		}
 		// make help first command

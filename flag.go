@@ -3,7 +3,7 @@ package gocli
 type FlagValidator func(a *Application, f IFlag) error
 
 type TFlag interface {
-	String | List | Bool | OneOf
+	String | []String | Bool | OneOf | Email | []Email | File | []File
 }
 
 type IFlag interface {
@@ -80,10 +80,7 @@ func (f *Flag[T]) IsSetByUser() bool {
 }
 
 func (f *Flag[T]) IsCumulative() bool {
-	if IsType[List](f) || IsType[OneOfList](f) {
-		return true
-	}
-	return false
+	return IsCumulative(f)
 }
 
 func (f *Flag[T]) SetByUser() {

@@ -77,7 +77,7 @@ var GoCliStrings = i18n.Entries{
 	"MixArgsCommandsTemplate":       `can't mix Arg()s with Command()s`,
 	"UnknownArgument":               `unknown argument {{.Name}}`,
 	"UnknownFlagTemplate":           `unknow {{.Prefix}}{{.Name}} flag`,
-	"UnexpectedFlagValueTemplate":   `expected argument for flag {{.Prefix}}{{.Name} {{if .Extra}got '{{.Extra}}'{{end}}}}`,
+	"UnexpectedFlagValueTemplate":   `expected argument for flag {{if .Short}}-{{.Short|Rune}}{{else}}--{{.Name}}{{end}} {{if .Value}got '{{.Value}}'{{end}}}}`,
 	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
 	"WrongFlagArgumentTypeTemplate": `wrong {{.GetType}} type`,
 	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on colland line`,
@@ -85,6 +85,7 @@ var GoCliStrings = i18n.Entries{
 	"UnknownArgumentValue":          `unsupported value {{.Extra}} for argument {{.Name}}`,
 	"MissingRequired":               `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
 	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,
+	"FlagValidationFailed":          `Invalid flag value {{.Value}} for flag {{if .Short}}-{{.Short|Rune}}{{else}}--{{.Name}}{{end}}: {{.Extra}}`,
 
 	"FormatCommandsCategory":    "Commands",
 	"FormatMisCommandsCategory": "Miscellaneous Commands",
