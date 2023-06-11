@@ -228,6 +228,11 @@ func (a *Application) checkHelpRequested() {
 	if err != nil {
 		a.printUsage(err)
 	}
+	// we also show help if only program name is speciffied with no flags nor arguments
+	if !a.context.have_components {
+		need_help = true
+	}
+
 	if need_help {
 		a.printUsage(nil)
 	}

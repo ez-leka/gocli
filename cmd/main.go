@@ -156,10 +156,10 @@ var deleteCmd = gocli.Command{
 
 func main() {
 
-	//testHelpFlag()
+	testHelpFlag()
 	// testHelpCommand()
 	//testFlagArgumentParsing()
-	testValidationGrouping()
+	//testValidationGrouping()
 
 }
 func makeApp() *gocli.Application {
@@ -198,7 +198,8 @@ func testHelpFlag() {
 	app.AddCommand(deleteCmd)
 	app.Version = "v1.2.3"
 
-	args := []string{"test", "delete", "--Помощь"}
+	args := []string{"test"}
+	// args := []string{"test", "delete", "--Помощь"}
 	err := app.Run(args)
 	if err != nil {
 		fmt.Println("FAILED:", err)
