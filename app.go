@@ -69,7 +69,7 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 
 	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
 	if idx < 0 {
-		templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+		return nil templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
 	}
 	return a.context.arguments_lookup[idx], nil
 }
