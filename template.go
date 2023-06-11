@@ -1,6 +1,7 @@
 package gocli
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -117,11 +118,52 @@ func (t TemplateManager) GetMessage(key string, a ...interface{}) string {
 	s := t.localizer.Sprintf(key, a...)
 	return s
 }
+
 func (t TemplateManager) formatTemplate(writer io.Writer, tpl string, obj any) error {
 	tpl_content := t.GetMessage(tpl, obj)
-	templ, err := template.New("temp_tpl").Funcs(t.CustomFuncs).Parse(tpl_content)
+	return t.doFormatTemplate(writer, tpl_content, obj, 0)
+}
+
+func (t TemplateManager) doFormatTemplate(writer io.Writer, tpl string, obj any, indent int) error {
+
+	// pre-format
+	// remove leading new lines
+	tpl = t.fixTemplateAlignment(tpl, indent)
+
+	templ, err := template.New("temp_tpl").Funcs(t.CustomFuncs).Parse(tpl)
 	if err != nil {
 		return err
 	}
 	return templ.Execute(writer, obj)
+}
+
+func (t TemplateManager) fixTemplateAlignment(tpl string, min_indent int) string {
+	tpl = strings.TrimPrefix(tpl, "\n")
+	tpl = strings.TrimSuffix(tpl, "\n")
+	tpl = strings.ReplaceAll(tpl, "\t", "    ")
+
+	new_tpl := ""
+	scanner := bufio.NewScanner(strings.NewReader(tpl))
+	i := 0
+	first_indent := 0
+	for scanner.Scan() {
+		s := scanner.Text()
+		trimmed := strings.TrimLeft(s, " \t")
+		indent := len(s) - len(trimmed)
+		if i == 0 {
+			if len(trimmed) == 0 {
+				// empty first string - do not calculate first indent
+				continue
+			}
+			first_indent = indent
+		}
+		s = strings.Repeat(" ", min_indent+indent-first_indent) + trimmed
+		if i != 0 {
+			new_tpl += "\n"
+		}
+		new_tpl += s
+		i++
+	}
+
+	return new_tpl
 }

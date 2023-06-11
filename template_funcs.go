@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"text/template"
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/olekukonko/ts"
@@ -14,9 +13,8 @@ import (
 func tplTranslate(in string) string {
 	return templateManager.localizer.Sprintf(in)
 }
-func tplIndent(indent int, s string) string {
-	s = strings.Repeat(" ", indent) + s
-	return s
+func tplIndent(indent int) string {
+	return strings.Repeat(" ", indent)
 }
 func tplRune(c rune) string {
 	if c != 0 {
@@ -110,18 +108,15 @@ func tplCommandsToTwoColumns(commands []*Command) [][2]string {
 			name = name + "(" + aliases + ")"
 		}
 
-		rows = append(rows, [2]string{name, tplFormatTemplate(cmd.Description, cmd)})
+		rows = append(rows, [2]string{name, tplFormatTemplate(cmd.Description, cmd, 0)})
 	}
 	return rows
 }
 
-func tplFormatTemplate(tpl string, obj any) string {
+func tplFormatTemplate(tpl string, obj any, indent int) string {
+
 	buf := bytes.NewBuffer(nil)
-	templ, err := template.New("temp_tpl").Funcs(templateManager.CustomFuncs).Parse(tpl)
-	if err != nil {
-		return err.Error()
-	}
-	templ.Execute(buf, obj)
+	templateManager.doFormatTemplate(buf, tpl, obj, indent)
 	return buf.String()
 }
 

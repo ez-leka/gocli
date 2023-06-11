@@ -33,10 +33,10 @@ var GoCliStrings = i18n.Entries{
 {{end}}
 {{end}}
 
-{{FormatTemplate .CurrentCommand.Description .CurrentCommand}}
+{{FormatTemplate .CurrentCommand.Description .CurrentCommand 4}}
 {{if .CurrentCommand.Commands}}
   {{template "FormatCommandCategory" .CurrentCommand.Commands|CommandCategories}}
-{{end -}}
+{{end}}
 {{if .Flags -}}
 {{Translate "Flags"}}:
 {{.Flags|FlagsArgsToTwoColumns|TwoColumns}}
@@ -46,9 +46,9 @@ var GoCliStrings = i18n.Entries{
 {{.Args|FlagsArgsToTwoColumns|TwoColumns}}
 {{end -}}
 {{Translate "Usage"}}: 
-{{$groups := .CurrentCommand.GetValidationGroups}}
-{{$group_idx := 0}}
-{{.CurrentCommand.FullCommand}} 
+{{- $groups := .CurrentCommand.GetValidationGroups -}}
+{{- $group_idx := 0}}
+{{Indent 4}}{{.CurrentCommand.FullCommand}} 
 {{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped -}} 
 {{- if $groups.Groups}} ({{end -}}
   {{- range $groups.Groups}}
@@ -56,9 +56,9 @@ var GoCliStrings = i18n.Entries{
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
   {{- if $groups.Groups}} ){{end -}}
-{{- if .CurrentCommand.Commands}} {{Translate "command"}}{{end -}}
+{{- if .CurrentCommand.Commands}} {{Translate "command"}}{{end}}
 {{if .CurrentCommand.Usage}}
-{{FormatTemplate .CurrentCommand.Usage .CurrentCommand }}
+{{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}
 `,
 	"HelpCommandAndFlagName":      `help`,
