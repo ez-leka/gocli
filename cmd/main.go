@@ -48,7 +48,7 @@ var getCmd = gocli.Command{
 			Usage:   "timestamp ",
 			Default: "",
 			Validator: func(a *gocli.Application, f gocli.IFlag) error {
-				resource_type, _ := a.GetOneOfArg("resourse-type")
+				resource_type, _ := a.GetStringArg("resourse-type")
 				if resource_type == "metrics" {
 					f.SetRequired(true)
 				}

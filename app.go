@@ -81,23 +81,8 @@ func (a *Application) GetStringArg(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !IsType[String](arg) {
+	if arg.IsCumulative() {
 		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-	}
-	return arg.GetValue().(string), nil
-}
-
-func (a *Application) GetOneOfArg(name string) (string, error) {
-
-	// find argument by name
-	arg, err := a.GetArgument(name)
-	if err != nil {
-		return "", err
-	}
-	if !IsType[OneOf](arg) {
-
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-
 	}
 	return arg.GetValue().(string), nil
 }
@@ -132,22 +117,8 @@ func (a *Application) GetStringFlag(name string) (string, error) {
 	if !ok {
 		return "", templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
 	}
-	if !IsType[String](f) {
+	if f.IsBool() || f.IsCumulative() {
 		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-	}
-
-	return f.GetValue().(string), nil
-}
-
-func (a *Application) GetOneOfFlag(name string) (string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return "", templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
-	}
-	if !IsType[OneOf](f) {
-
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-
 	}
 
 	return f.GetValue().(string), nil
