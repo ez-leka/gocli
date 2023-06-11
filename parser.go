@@ -13,7 +13,6 @@ type ParseContext struct {
 	flags_lookup     map[string]IFlag
 	arguments_lookup []IArg // arguments are positioned so array , not a map
 	arg_pos          int    // Cursor into arguments - arguments are positioned, so they ar eprocessed in the order they arrive
-	have_components  bool
 }
 
 func (ctx *ParseContext) nextArg() IArg {
@@ -131,8 +130,6 @@ func (ctx *ParseContext) parse(app *Application, args []string) error {
 }
 func (ctx *ParseContext) processArg(token string) error {
 
-	ctx.have_components = true
-
 	if ctx.CurrentCommand.HasSubCommands() {
 		cmd, ok := ctx.CurrentCommand.commands_map[token]
 		if !ok {
@@ -159,8 +156,6 @@ func (ctx *ParseContext) processArg(token string) error {
 }
 
 func (ctx *ParseContext) processLongFlag(flag_token string) error {
-
-	ctx.have_components = true
 
 	flag_token = flag_token[2:]
 
@@ -203,7 +198,6 @@ func (ctx *ParseContext) processLongFlag(flag_token string) error {
 }
 
 func (ctx *ParseContext) processShortFlag(flag_token string) error {
-	ctx.have_components = true
 
 	flag_token = flag_token[1:]
 

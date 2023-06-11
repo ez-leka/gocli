@@ -228,8 +228,8 @@ func (a *Application) checkHelpRequested() {
 	if err != nil {
 		a.printUsage(err)
 	}
-	// we also show help if only program name is speciffied with no flags nor arguments
-	if !a.context.have_components {
+	// we also show help if last parsed command was not the leaf of the command chain
+	if len(a.context.CurrentCommand.Commands) > 0 {
 		need_help = true
 	}
 

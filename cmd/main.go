@@ -198,7 +198,7 @@ func testHelpFlag() {
 	app.AddCommand(deleteCmd)
 	app.Version = "v1.2.3"
 
-	args := []string{"test"}
+	args := []string{"test", "create"}
 	// args := []string{"test", "delete", "--Помощь"}
 	err := app.Run(args)
 	if err != nil {
