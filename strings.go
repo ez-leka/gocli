@@ -56,6 +56,7 @@ var GoCliStrings = i18n.Entries{
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
   {{- if $groups.Groups}} ){{end -}}
+{{- if .CurrentCommand.Commands}} {{Translate "command"}}{{end -}}
 {{if .CurrentCommand.Usage}}
 {{FormatTemplate .CurrentCommand.Usage .CurrentCommand }}
 {{end}}
