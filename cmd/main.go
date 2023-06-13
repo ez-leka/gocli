@@ -91,9 +91,44 @@ var createCmd = gocli.Command{
 		`,
 	Flags: []gocli.IFlag{
 		&gocli.Flag[[]gocli.String]{
-			Name:    "filename",
-			Usage:   "yaml or json file (or files, if wildcard) identifying resources to delete",
-			Default: "",
+			Name:             "filename",
+			Short:            'f',
+			Usage:            "yaml or json file (or files, if wildcard) identifying resources to delete",
+			Default:          "",
+			Required:         true,
+			ValidationGroups: []string{"file"},
+		},
+		&gocli.Flag[gocli.OneOf]{
+			Name:     "output",
+			Short:    'o',
+			Usage:    "Output format",
+			Hints:    []string{"json", "table", "yaml"},
+			Default:  "table",
+			Required: false,
+		},
+	},
+	Commands: []*gocli.Command{
+		{
+			Name:             "OptionalCommand",
+			Optional:         true,
+			ValidationGroups: []string{"opt_cmd1"},
+			Flags: []gocli.IFlag{
+				&gocli.Flag[gocli.String]{
+					Name:             "port",
+					Short:            'p',
+					Usage:            "port",
+					Default:          "8080",
+					Required:         true,
+					ValidationGroups: []string{"opt_cmd1"},
+				},
+			},
+			Args: []gocli.IArg{
+				&gocli.Arg[gocli.String]{
+					Name:             "resource-name",
+					Required:         true,
+					ValidationGroups: []string{"opt_cmd1"},
+				},
+			},
 		},
 	},
 }
@@ -156,11 +191,11 @@ var deleteCmd = gocli.Command{
 
 func main() {
 
-	testHelpFlag()
+	//testHelpFlag()
 	// testHelpCommand()
-	//testFlagArgumentParsing()
+	// testFlagArgumentParsing()
 	//testValidationGrouping()
-
+	testOptionalCommand()
 }
 func makeApp() *gocli.Application {
 	app := gocli.New("en_us")
@@ -226,12 +261,72 @@ func testHelpCommand() {
 	}
 }
 
+func testOptionalCommand() {
+	app := makeApp()
+	app.Terminate(nil)
+
+	args := []string{"test", "create"}
+	fmt.Println(args)
+	err := app.Run(args)
+	// should fail because either command or -f flag required
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "create", "-fcmd"}
+	err = app.Run(args)
+	fmt.Println(args)
+	if err != nil {
+		fmt.Println("FAILED:", err)
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "create", "OptionalCommand"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// shoudl fail as required argument is missing
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED:", err)
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "create", "OptionalCommand", "func1"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// shoudl fail - required flag --port is missing
+	if err != nil {
+		fmt.Println("PASSED:")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "create", "OptionalCommand", "func1", "-fcmd"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should fail - both groups used
+	if err != nil {
+		fmt.Println("PASSED:")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+}
+
 func testFlagArgumentParsing() {
 	app := makeApp()
 	app.Version = "v1.2.3"
 	var err error
 
-	args := []string{"test", "get", "nodes", "-e", "my@gnode.org", "-ftest25.txt", "-f=test2.txt", "-f", "test3.txt", "--filename=test4.txt", "--filename", "test5.txt", "-vaftest6.txt", "-vaf=test6.txt", "-vaf", "test7.txt", "-vfa", "test8.txt", "node1,node2", "node3"}
+	args := []string{"test", "get", "nodes", "-e", "my@gnode.org", "-fcmd", "-f=test2.txt", "-f", "test3.txt", "--filename=test4.txt", "--filename", "test5.txt", "-vaftest6.txt", "-vaf=test6.txt", "-vaf", "test7.txt", "-vfa", "test8.txt", "node1,node2", "node3"}
 	err = app.Run(args)
 	if err != nil {
 		fmt.Println("FAILED:", err)

@@ -7,7 +7,7 @@ type IArg interface {
 }
 
 type TArg interface {
-	String | []String | Bool | OneOf | []OneOf | Email | []Email | File | []File
+	String | []String | Bool | OneOf | []OneOf | Email | []Email | File | []File | TimeStamp | []TimeStamp
 }
 
 type ArgValidator func(a *Application, arg IArg) error
@@ -23,6 +23,10 @@ type Arg[T TArg] struct {
 	isSetByUser      bool
 	ValidationGroups []string
 	Validator        ArgValidator
+}
+
+func (a *Arg[T]) GetType() string {
+	return "argument"
 }
 
 func (a *Arg[T]) Compare(aa IFlagArg) int {
@@ -69,8 +73,13 @@ func (a *Arg[T]) getDestination() interface{} {
 }
 
 func (a *Arg[T]) GetPlaceholder() string {
-	return a.Placeholder
+	p := a.Placeholder
+	if p == "" {
+		p = a.Name
+	}
+	return strings.ToUpper(p)
 }
+
 func (a *Arg[T]) SetPlaceholder(placeholder string) {
 	a.Placeholder = placeholder
 }

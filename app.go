@@ -69,7 +69,7 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 
 	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
 	if idx < 0 {
-		return nil, templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+		return nil, templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Arg[String]{Name: name}})
 	}
 	return a.context.arguments_lookup[idx], nil
 }
@@ -82,57 +82,66 @@ func (a *Application) GetStringArg(name string) (string, error) {
 		return "", err
 	}
 	if arg.IsCumulative() {
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+		return "", templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
 	}
 	return arg.GetValue().(string), nil
 }
 
 func (a *Application) GetListArg(name string) ([]string, error) {
 	// find argument by name
-	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
-	if idx < 0 {
-		return nil, templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+	arg, err := a.GetArgument(name)
+	if err != nil {
+		return []string{}, err
 	}
-	arg := a.context.arguments_lookup[idx]
 
 	if arg.IsCumulative() {
 		return arg.GetValue().([]string), nil
 	}
-	return nil, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
+}
+
+func (a *Application) GetFlag(name string) (IFlag, error) {
+	f, ok := a.context.flags_lookup[name]
+	if !ok {
+		return nil, templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: name}})
+	}
+
+	return f, nil
 }
 
 func (a *Application) GetBoolFlag(name string) (bool, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return false, templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return false, err
 	}
 	if !f.IsBool() {
-		return false, templateManager.makeError("WrongFlagArgumentTypeTemplate", FlagTemplateContext{Name: name})
+		return false, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 	return f.GetValue().(bool), nil
 }
 
 func (a *Application) GetStringFlag(name string) (string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return "", templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return "", err
 	}
 	if f.IsBool() || f.IsCumulative() {
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+		return "", templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 
 	return f.GetValue().(string), nil
 }
 
 func (a *Application) GetListFlag(name string) ([]string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return []string{}, templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return []string{}, err
 	}
 	if f.IsCumulative() {
 		return f.GetValue().([]string), nil
 	}
-	return nil, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 
 }
 
@@ -173,6 +182,7 @@ func (a *Application) Run(args []string) (err error) {
 	err = a.context.parse(a, args[1:])
 	if err != nil {
 		a.printUsage(err)
+		return err
 	}
 
 	// if hel flag was set app will exit with succsess
@@ -182,12 +192,14 @@ func (a *Application) Run(args []string) (err error) {
 	err = a.context.validate(a)
 	if err != nil {
 		a.printUsage(err)
+		return err
 	}
 
 	// execute command actions
 	err = a.context.execute(a)
 	if err != nil {
 		a.printUsage(err)
+		return err
 	}
 
 	return err
@@ -198,10 +210,6 @@ func (a *Application) checkHelpRequested() {
 	need_help, err := a.GetBoolFlag(a.HelpFlag.GetName())
 	if err != nil {
 		a.printUsage(err)
-	}
-	// we also show help if last parsed command was not the leaf of the command chain
-	if len(a.context.CurrentCommand.Commands) > 0 {
-		need_help = true
 	}
 
 	if need_help {

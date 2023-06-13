@@ -45,29 +45,6 @@ func inHints(hints []string, value string) string {
 	return ""
 }
 
-func getValueFromHints(fa IFlagArg, value string, is_flag bool) (string, error) {
-	hints := fa.GetHints()
-
-	if len(hints) == 0 {
-		if is_flag {
-			return "", i18n.NewError("NoHintsForEnumArg", FlagTemplateContext{Name: fa.GetName()})
-		} else {
-			return "", i18n.NewError("NoHintsForEnumArg", ArgTemplateContext{Name: fa.GetName()})
-		}
-	}
-
-	true_value := inHints(hints, value)
-	if true_value == "" {
-		if is_flag {
-			return "", i18n.NewError("UnknownFlagValue", FlagTemplateContext{Name: fa.GetName(), Extra: value})
-		} else {
-			return "", i18n.NewError("UnknownArgumentValue", ArgTemplateContext{Name: fa.GetName(), Extra: value})
-		}
-	}
-
-	return true_value, nil
-}
-
 func setFlagArgValue(fa IFlagArg, value string) error {
 	dest := fa.getDestination()
 	rv := reflect.ValueOf(dest).Elem()
@@ -84,13 +61,13 @@ func setFlagArgValue(fa IFlagArg, value string) error {
 	if fa.IsCumulative() {
 		t := reflect.TypeOf(dest).Elem().Elem()
 		new_value := reflect.New(t).Interface()
-		err := new_value.(Setable).FromString(value, fa)
+		err := new_value.(ISetable).FromString(value, fa)
 		if err != nil {
 			return err
 		}
 		rv.Set(reflect.Append(rv, reflect.ValueOf(new_value).Elem()))
 	} else {
-		setable := dest.(Setable)
+		setable := dest.(ISetable)
 		err := setable.FromString(value, fa)
 		if err != nil {
 			return err
@@ -106,20 +83,19 @@ func getFlagArgValue(fa IFlagArg) interface{} {
 
 	rt := reflect.TypeOf(dest).Elem()
 	rv := reflect.ValueOf(dest).Elem()
-	switch rt.Kind() {
-	case reflect.Slice:
-		val := []string{}
-		for i := 0; i < rv.Len(); i++ {
-			val = append(val, rv.Index(i).String())
-		}
-		return val
-	case reflect.Bool:
-		return bool(rv.Bool())
-	case reflect.String:
-		return rv.String()
-	}
 
-	return nil
+	if fa.IsCumulative() {
+		tp := reflect.New(rt.Elem()).Interface().(ISetable).GetReturnType()
+		elemSlice := reflect.MakeSlice(reflect.SliceOf(tp), 0, 0)
+
+		for i := 0; i < rv.Len(); i++ {
+			item := rv.Index(i).Addr().Interface()
+			elemSlice = reflect.Append(elemSlice, reflect.ValueOf(item.(ISetable).GetValue()))
+		}
+		return elemSlice.Interface()
+	} else {
+		return dest.(ISetable).GetValue()
+	}
 }
 
 func IsType[T TFlag | TArg](fa IFlagArg) bool {

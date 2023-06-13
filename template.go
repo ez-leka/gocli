@@ -19,9 +19,6 @@ type TemplateManager struct {
 	localizer   i18n.Localizer
 }
 
-type IElementContext interface {
-	GetType() string
-}
 type TokenTemplateContext struct {
 	Name  string
 	Extra string
@@ -31,27 +28,10 @@ func (f TokenTemplateContext) GetType() string {
 	return "token"
 }
 
-type FlagTemplateContext struct {
-	Name   string
-	Short  rune
-	Value  string
-	Extra  string
-	Prefix string
+type ElementTemplateContext struct {
+	Element IValidatable
+	Extra   string
 }
-
-func (f FlagTemplateContext) GetType() string {
-	return "flag"
-}
-
-type ArgTemplateContext struct {
-	Name  string
-	Extra string
-}
-
-func (f ArgTemplateContext) GetType() string {
-	return "argument"
-}
-
 type UsageTemplateContext struct {
 	AppName        string
 	CurrentCommand Command

@@ -8,19 +8,22 @@ type Action func(*Application, *Command, interface{}) (interface{}, error)
 type CommandValidator func(*Application, *Command) error
 
 type Command struct {
-	Name         string
-	Alias        []string
-	Description  string
-	Usage        string
-	Category     *CommandCategory
-	Flags        []IFlag
-	Args         []IArg
-	Commands     []*Command
-	Action       Action
-	Validator    CommandValidator
-	initialized  bool
-	commands_map map[string]*Command
-	parent       *Command
+	Name             string
+	Alias            []string
+	Description      string
+	Usage            string
+	Category         *CommandCategory
+	Flags            []IFlag
+	Args             []IArg
+	Commands         []*Command
+	Action           Action
+	Validator        CommandValidator
+	ValidationGroups []string
+	Optional         bool
+	initialized      bool
+	commands_map     map[string]*Command
+	parent           *Command
+	setByUser        bool
 }
 
 func (c Command) FullCommand() string {
@@ -30,6 +33,22 @@ func (c Command) FullCommand() string {
 	}
 	return strings.Join(full_cmd, " ")
 
+}
+
+func (c *Command) GetName() string {
+	return c.Name
+}
+
+func (c *Command) GetPlaceholder() string {
+	return c.Name
+}
+
+func (c *Command) GetType() string {
+	return "command"
+}
+
+func (c *Command) IsRequired() bool {
+	return true // if command was parced it was required
 }
 
 // all required flags will be first  followed by all optional flags
@@ -55,7 +74,7 @@ func (c Command) GetGlobalFlags() ValidationGroup {
 
 // all required flags will be first  followed by all optional flags in every group
 // followed by all required args followed by all optional args
-func (c Command) GetValidationGroups() GroupedFlagsArgs {
+func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 
 	grouped := GroupedFlagsArgs{
 		Ungrouped: ValidationGroup{
@@ -128,6 +147,10 @@ func (c Command) GetValidationGroups() GroupedFlagsArgs {
 	return grouped
 }
 
+func (c *Command) GetValidationGroups() []string {
+	return c.ValidationGroups
+}
+
 func (c *Command) init() error {
 	c.commands_map = make(map[string]*Command)
 
@@ -153,6 +176,22 @@ func (c *Command) HasSubCommands() bool {
 func (c *Command) HasSubCommand(name string) bool {
 	_, ok := c.commands_map[name]
 	return ok
+}
+
+func (c *Command) isLeaf() bool {
+	leaf := true
+	// the command is a leaf if it has no sub-commands that are not optional
+	for _, sc := range c.Commands {
+		if !sc.Optional {
+			leaf = false
+			break
+		}
+	}
+	return leaf
+}
+
+func (c *Command) IsSetByUser() bool {
+	return c.setByUser
 }
 
 func (c *Command) AddFlag(flag IFlag) {

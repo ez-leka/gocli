@@ -182,7 +182,7 @@ Flags and argumens can be a single value or cumulative, alowing for multiple val
 
 ```
 - Email  (`Flag[Email]{}`) - value of the flag or argument of this type must validate as a valid email. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
-- File (`Flag[File]{}`) - value of the flag or argument of this type must validate as existing file path. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
+- File (`Flag[File]{}`) - value of the flag or argument of this type must validate as existing file path to a file or directory. If path contains wildcard, validation will make sure thatat least one match exist. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
 
 To retrieve the value use `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
 
@@ -271,7 +271,7 @@ We can define that command as following:
 
 In addition, custom validators can be specifies if an additional logic to validate flags and arguments is required. Custom Validator functions are called after command line flags and arguments have been parsed, required type validation passed for all but before required flags and arguments are validated. This function can reset required value and any other public property of this flag according to all other parsed flags and arguments as needed
 
-After custom validators, the required flags abd arguments validated, so you can feelfree to change whether the flag or argument is required in castom validators. 
+After custom validators, the required flags and arguments validated, so you can feel free to change whether the flag or argument is required in castom validators. 
 
 ## Actions 
 

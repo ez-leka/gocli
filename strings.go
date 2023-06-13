@@ -6,10 +6,10 @@ var GoCliStrings = i18n.Entries{
 	"AppUsageTemplate": `
 {{- define "CmdFlag"}}
 {{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{end -}}
-{{- if not .IsBool}}[=]<{{if .GetPlaceholder}}{{.GetPlaceholder}}{{else}}{{.GetName|ToUpper}}{{end}}>{{end -}}
+{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{end -}}
 {{- end -}}
 
-{{- define "CmdArg"}}<{{if .GetPlaceholder}}{{.GetPlaceholder}}{{else}}{{.GetName}}{{end}}>{{- end -}}
+{{- define "CmdArg"}} <{{.GetPlaceholder}}>{{- end -}}
 
 {{- define "CmdGroup"}}
 {{- range .RequiredFlags}}{{template "CmdFlag" .}}{{end -}}
@@ -46,7 +46,7 @@ var GoCliStrings = i18n.Entries{
 {{.Args|FlagsArgsToTwoColumns|TwoColumns}}
 {{end -}}
 {{Translate "Usage"}}: 
-{{- $groups := .CurrentCommand.GetValidationGroups -}}
+{{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
 {{- $group_idx := 0}}
 {{Indent 4}}{{.CurrentCommand.FullCommand}} 
 {{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped -}} 
@@ -76,22 +76,24 @@ var GoCliStrings = i18n.Entries{
 	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
 	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
 	"MixArgsCommandsTemplate":       `can't mix Arg()s with Command()s`,
-	"UnknownArgument":               `unknown argument {{.Name}}`,
-	"UnknownFlagTemplate":           `unknow {{.Prefix}}{{.Name}} flag`,
-	"UnexpectedFlagValueTemplate":   `expected argument for flag {{if .Short}}-{{.Short|Rune}}{{else}}--{{.Name}}{{end}} {{if .Value}got '{{.Value}}'{{end}}}}`,
+	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
+	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
 	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
-	"WrongFlagArgumentTypeTemplate": `wrong {{.GetType}} type`,
+	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type`,
 	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on colland line`,
-	"NoHintsForEnumArg":             `no hints speciffied for argument {{.GetName}}`,
-	"UnknownArgumentValue":          `unsupported value {{.Extra}} for argument {{.Name}}`,
-	"MissingRequired":               `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
+	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
+	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidTimeFormat":             `invalid timestamp string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"MissingRequiredFlag":           `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
+	"MissingRequiredArg":            `required {{.GetType}} {{.GetPlaceholder}} is missing `,
 	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,
-	"FlagValidationFailed":          `Invalid flag value {{.Value}} for flag {{if .Short}}-{{.Short|Rune}}{{else}}--{{.Name}}{{end}}: {{.Extra}}`,
-
-	"FormatCommandsCategory":    "Commands",
-	"FormatMisCommandsCategory": "Miscellaneous Commands",
-	"FormatFlagWithShort":       "-%c, --%s",
-	"FormatFlagNoShort":         "--%s",
-	"FormatFlagShort":           "-%c",
-	"FormatArg":                 "%s",
+	"NoUniqueFlagArgCommandInGroup": `must specify flag, argument or command. Try --help`,
+	"FlagValidationFailed":          `Invalid flag value {{.Extra}} for flag --{{.Name}}{{if .Short}}(-{{.Short|Rune}}{{end}}): {{.Extra}}`,
+	"CommandRequired":               `Command required. Try --help`,
+	"FormatCommandsCategory":        "Commands",
+	"FormatMisCommandsCategory":     "Miscellaneous Commands",
+	"FormatFlagWithShort":           "-%c, --%s",
+	"FormatFlagNoShort":             "--%s",
+	"FormatFlagShort":               "-%c",
+	"FormatArg":                     "%s",
 }
