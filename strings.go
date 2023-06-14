@@ -12,6 +12,7 @@ var GoCliStrings = i18n.Entries{
 {{- define "CmdArg"}} <{{.GetPlaceholder}}>{{- end -}}
 
 {{- define "CmdGroup"}}
+{{- if .Command}}{{Translate .Command}}{{end -}}
 {{- range .RequiredFlags}}{{template "CmdFlag" .}}{{end -}}
 {{- if .OptionalFlags}} [{{end -}}
 {{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}	
@@ -49,14 +50,13 @@ var GoCliStrings = i18n.Entries{
 {{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
 {{- $group_idx := 0}}
 {{Indent 4}}{{.CurrentCommand.FullCommand}} 
-{{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped -}} 
+{{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped }} 
 {{- if $groups.Groups}} ({{end -}}
   {{- range $groups.Groups}}
   {{- if eq $group_idx 1}} | {{end}} 
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
-  {{- if $groups.Groups}} ){{end -}}
-{{- if .CurrentCommand.Commands}} {{Translate "command"}}{{end}}
+  {{- if $groups.Groups}} ){{end}}
 {{if .CurrentCommand.Usage}}
 {{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}

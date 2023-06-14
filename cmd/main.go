@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/mail"
+	"os"
 
 	"github.com/ez-leka/gocli"
 	"github.com/ez-leka/gocli/i18n"
@@ -260,17 +261,16 @@ var argsAndCommands = gocli.Command{
 	Alias:       []string{"list"},
 	Description: "Display one or many resources",
 	Usage: `
-		test get [(-o|--output=)json|yaml|table] <resource-type> [<resource-name>]
-	
+
 	Examples:
 		# List all resourses in specified format
-		test get function -o json
-	
-		`,
+		{{.FullCommand}} function -o json
+
+	`,
 	Commands: []*gocli.Command{
 		{
 			Name:             "metrics",
-			Description:      "Get time metrics and usage inromation for function",
+			Description:      "Get time metrics and usage information for a function",
 			ValidationGroups: []string{"metrics"},
 			Optional:         true,
 			Flags: []gocli.IFlag{
@@ -287,27 +287,55 @@ var argsAndCommands = gocli.Command{
 					Default: "",
 				},
 			},
-			Args: []gocli.IArg{
-				&gocli.Arg[gocli.String]{
-					Name:  "usage",
-					Usage: "extra argument for thsi command only",
-				},
+			Validator: func(a *gocli.Application, c *gocli.Command) error {
+				// metrics require resource name
+				arg, _ := a.GetArgument("resource-name")
+				arg.SetRequired(true)
+				return nil
 			},
+			Action: func(app *gocli.Application, cmd *gocli.Command, data interface{}) (interface{}, error) {
+				fmt.Println("Will get metrics and exit - no propagation")
+				os.Exit(0)
+				return nil, nil
+			},
+		},
+	},
+	Flags: []gocli.IFlag{
+		&gocli.Flag[gocli.OneOf]{
+			Name:     "output",
+			Short:    'o',
+			Usage:    "Output format",
+			Hints:    []string{"json", "table", "yaml"},
+			Default:  "table",
+			Required: false,
 		},
 	},
 	Args: []gocli.IArg{
 		&gocli.Arg[gocli.OneOf]{
-			Name:             "resourse-type",
-			Hints:            []string{"node(s)", "function(s)", "user(s)", "metrics"},
+			Name:             "resource-type",
+			Usage:            "type of the resourse to get",
+			Hints:            []string{"user(s)", "function(s)", "node(s)"},
 			Required:         true,
-			Usage:            "type of the resource to get",
-			ValidationGroups: []string{"resources"},
+			ValidationGroups: []string{"top"},
 		},
 		&gocli.Arg[[]gocli.String]{
 			Name:             "resource-name",
-			Usage:            "Name of the resource",
-			ValidationGroups: []string{"resources", "metrics"},
+			Usage:            "Name of the resourse",
+			Required:         false,
+			ValidationGroups: []string{"top", "metrics"},
 		},
+	},
+	Action: func(app *gocli.Application, cmd *gocli.Command, data interface{}) (interface{}, error) {
+		// resource_type, err := app.GetStringArg("resource-type")
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// resource_name, err := app.GetListArg("resource-name")
+		// if err != nil {
+		// 	return nil, err
+		// }
+
+		return nil, nil
 	},
 }
 
@@ -316,8 +344,8 @@ func main() {
 	//testHelpFlag()
 	// testHelpCommand()
 	// testFlagArgumentParsing()
-	testValidationGrouping()
-	testOptionalCommand()
+	// testValidationGrouping()
+	// testOptionalCommand()
 	testUngroupedCommand()
 	testMixOfArgsAndCommands()
 
@@ -392,9 +420,20 @@ func testUngroupedCommand() {
 
 	app.AddCommand(configCmd)
 
-	args := []string{"test", "config", "set"}
+	args := []string{"test", "config"}
 	fmt.Println(args)
 	err := app.Run(args)
+	// should fail because no required command
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "config", "set"}
+	fmt.Println(args)
+	err = app.Run(args)
 	// should fail because no required args
 	if err != nil {
 		fmt.Println("PASSED")
@@ -411,9 +450,20 @@ func testMixOfArgsAndCommands() {
 
 	app.AddCommand(argsAndCommands)
 
-	args := []string{"test", "get", "function", "fun1"}
+	args := []string{"test", "get"}
 	fmt.Println(args)
 	err := app.Run(args)
+	// should fail - missing required arg or command
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "function", "fun1"}
+	fmt.Println(args)
+	err = app.Run(args)
 	// should pass
 	if err != nil {
 		fmt.Println("FAILED")

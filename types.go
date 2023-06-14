@@ -193,6 +193,7 @@ type ICommand interface {
 }
 
 type ValidationGroup struct {
+	Command       string
 	RequiredFlags []IFlag
 	OptionalFlags []IFlag
 	RequiredArgs  []IArg

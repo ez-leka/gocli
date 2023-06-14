@@ -114,6 +114,7 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 			grouped.Groups[gname] = g
 		}
 	}
+
 	for _, fa := range c.Args {
 		if len(fa.GetValidationGroups()) == 0 {
 			if fa.IsRequired() {
@@ -144,6 +145,31 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 
 		}
 	}
+
+	for _, subc := range c.Commands {
+		if len(subc.GetValidationGroups()) == 0 {
+			grouped.Ungrouped.Command = "command"
+			continue
+		}
+		for _, gname := range subc.GetValidationGroups() {
+			var g ValidationGroup
+			ok := false
+			if g, ok = grouped.Groups[gname]; !ok {
+				g = ValidationGroup{
+					Command:       subc.Name,
+					RequiredFlags: make([]IFlag, 0),
+					OptionalFlags: make([]IFlag, 0),
+					RequiredArgs:  make([]IArg, 0),
+					OptionalArgs:  make([]IArg, 0),
+				}
+
+			}
+			g.Command = subc.Name
+			grouped.Groups[gname] = g
+
+		}
+	}
+
 	return grouped
 }
 

@@ -313,7 +313,7 @@ func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValid
 		}
 	}
 
-	// make sure that no 2 emutially exclusive obejcts are set
+	// make sure that no 2 emutially exclusive objects are set
 	set_in_group := ""
 	var va_set IValidatable = nil
 	for g_name, g := range unique_groups {
@@ -330,18 +330,22 @@ func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValid
 	}
 	var final_group []IValidatable
 	if len(groups) > 1 && len(unique_groups) == 0 {
+		// there ar emultiple named groups and no unique groups
 		return []IValidatable{}, i18n.NewError("NoUniqueFlagArgCommandInGroup", nil)
-	} else if len(unique_groups) == 0 || set_in_group == "" {
-		// there is only one non unique group or no unique group has anythig set
-		for _, g := range groups {
-			final_group = g
-		}
-	} else {
-		// we have disting unique group
-		final_group = groups[set_in_group]
 	}
-	//merge  ungrouped into group before retruning
-	final_group = append(final_group, ungrouped...)
+
+	if set_in_group == "" {
+		// no group has a value set by user - most likely command has been unfinished
+		// we will returns everything so it can be valudated for required
+		for _, vo := range set {
+			final_group = append(final_group, vo)
+		}
+		return final_group, nil
+	}
+
+	// we have unique group
+	final_group = append(groups[set_in_group], ungrouped...)
+
 	return final_group, nil
 }
 func (ctx *ParseContext) validate(app *Application) error {
