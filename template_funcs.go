@@ -50,7 +50,15 @@ func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 		// usage can be a template - so make it first
 		buf := bytes.NewBuffer(nil)
 		templateManager.formatTemplate(buf, fa.GetUsage(), fa)
-		rows = append(rows, [2]string{name, buf.String()})
+		usage := buf.String()
+		usage = strings.TrimRight(usage, " \t.")
+		if len(fa.GetHints()) > 0 {
+			usage += ". " + templateManager.localizer.Sprintf("FormatHints", strings.Join(fa.GetHints(), ","))
+		}
+		if fa.GetDefault() != "" {
+			usage += " " + templateManager.localizer.Sprintf("FormatDefault", fa.GetDefault())
+		}
+		rows = append(rows, [2]string{name, usage})
 	}
 	return rows
 }

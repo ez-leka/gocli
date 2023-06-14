@@ -202,7 +202,7 @@ func (a *Application) Run(args []string) (err error) {
 	// execute command actions
 	err = a.context.execute(a)
 	if err != nil {
-		a.printUsage(err)
+		a.printError(err)
 		return err
 	}
 
@@ -221,13 +221,17 @@ func (a *Application) checkHelpRequested() {
 	}
 }
 
+func (a *Application) printError(err error) {
+
+	if int_err, ok := err.(*i18n.Error); ok {
+		templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
+	} else {
+		templateManager.GetMessage("Error", err)
+	}
+}
 func (a *Application) printUsage(err error) {
 	if err != nil {
-		if int_err, ok := err.(*i18n.Error); ok {
-			templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
-		} else {
-			templateManager.GetMessage("Error", err)
-		}
+		a.printError(err)
 	}
 
 	if err := a.FormatUsage(); err != nil {

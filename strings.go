@@ -95,4 +95,6 @@ var GoCliStrings = i18n.Entries{
 	"FormatFlagNoShort":             "--%s",
 	"FormatFlagShort":               "-%c",
 	"FormatArg":                     "%s",
+	"FormatDefault":                 "(Default: %s)",
+	"FormatHints":                   "One of: %s",
 }
