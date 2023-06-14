@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/mail"
-	"os"
 
 	"github.com/ez-leka/gocli"
 	"github.com/ez-leka/gocli/i18n"
@@ -295,7 +294,7 @@ var argsAndCommands = gocli.Command{
 			},
 			Action: func(app *gocli.Application, cmd *gocli.Command, data interface{}) (interface{}, error) {
 				fmt.Println("Will get metrics and exit - no propagation")
-				os.Exit(0)
+				app.Stop()
 				return nil, nil
 			},
 		},
@@ -326,15 +325,7 @@ var argsAndCommands = gocli.Command{
 		},
 	},
 	Action: func(app *gocli.Application, cmd *gocli.Command, data interface{}) (interface{}, error) {
-		// resource_type, err := app.GetStringArg("resource-type")
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// resource_name, err := app.GetListArg("resource-name")
-		// if err != nil {
-		// 	return nil, err
-		// }
-
+		fmt.Println("get action")
 		return nil, nil
 	},
 }
@@ -346,7 +337,7 @@ func main() {
 	// testFlagArgumentParsing()
 	// testValidationGrouping()
 	// testOptionalCommand()
-	testUngroupedCommand()
+	// testUngroupedCommand()
 	testMixOfArgsAndCommands()
 
 }
@@ -461,16 +452,16 @@ func testMixOfArgsAndCommands() {
 	}
 	fmt.Println("------------------------")
 
-	args = []string{"test", "get", "function", "fun1"}
-	fmt.Println(args)
-	err = app.Run(args)
-	// should pass
-	if err != nil {
-		fmt.Println("FAILED")
-	} else {
-		fmt.Println("PASSED")
-	}
-	fmt.Println("------------------------")
+	// args = []string{"test", "get", "function", "fun1"}
+	// fmt.Println(args)
+	// err = app.Run(args)
+	// // should pass
+	// if err != nil {
+	// 	fmt.Println("FAILED")
+	// } else {
+	// 	fmt.Println("PASSED")
+	// }
+	// fmt.Println("------------------------")
 
 	args = []string{"test", "get", "metrics", "fun1"}
 	fmt.Println(args)

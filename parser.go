@@ -436,6 +436,9 @@ func (ctx *ParseContext) execute(app *Application) error {
 		if err != nil {
 			return err
 		}
+		if app.stopActionPropagation {
+			break
+		}
 		cmd = cmd.parent
 	}
 	return nil

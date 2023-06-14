@@ -20,16 +20,17 @@ type Application struct {
 	// Help flag. Can be customized  before calling Run
 	HelpFlag IFlag
 	// Version flag. Can be customized before calling Run
-	VersionFlag     IFlag
-	ShowHelpCommand bool
-	MixArgsAndFlags bool
-	Author          string
-	Version         string
-	errorWriter     io.Writer // Destination for errors.
-	usageWriter     io.Writer // Destination for usage
-	terminate       func(status int)
-	context         *ParseContext
-	language        language.Tag
+	VersionFlag           IFlag
+	ShowHelpCommand       bool
+	MixArgsAndFlags       bool
+	Author                string
+	Version               string
+	errorWriter           io.Writer // Destination for errors.
+	usageWriter           io.Writer // Destination for usage
+	terminate             func(status int)
+	context               *ParseContext
+	language              language.Tag
+	stopActionPropagation bool
 }
 
 // Creates a new gocli application.
@@ -164,6 +165,9 @@ func (a *Application) SetErrorWriter(w io.Writer) *Application {
 func (a *Application) SetWriter(w io.Writer) *Application {
 	a.usageWriter = w
 	return a
+}
+func (a *Application) Stop() {
+	a.stopActionPropagation = true
 }
 
 // Run :

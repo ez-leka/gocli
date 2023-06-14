@@ -288,7 +288,14 @@ Consider command chain:
         delete
 
 ```
-Action for commands create, update and delete will be executed first. if each of those actions return user struct, the user command action will receive that data and take ocare of printing it uniformly so you only need to implement formatting and printing on one place
+Action for commands create, update and delete will be executed first. if each of those actions return user struct, the user command action will receive that data and take care of printing it uniformly so you only need to implement formatting and printing on one place.
+
+If you want to stop propagation, use Stop mthod in any of the action callbacks. 
+
+```go
+app.Stop()
+
+```
 
 ## Templates And Localization
 Any and all strings in gocli can be customized and/or localized. 
