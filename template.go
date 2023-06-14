@@ -129,14 +129,21 @@ func (t TemplateManager) fixTemplateAlignment(tpl string, min_indent int) string
 		s := scanner.Text()
 		trimmed := strings.TrimLeft(s, " \t")
 		indent := len(s) - len(trimmed)
-		if i == 0 {
-			if len(trimmed) == 0 {
-				// empty first string - do not calculate first indent
+		real_indent := min_indent + indent - first_indent
+		if len(trimmed) == 0 {
+			if i == 0 {
+				// first empty line - ignore
 				continue
+			} else {
+				//empty line - no inden tneeded
+				real_indent = 0
 			}
-			first_indent = indent
 		}
-		s = strings.Repeat(" ", min_indent+indent-first_indent) + trimmed
+		if i == 0 {
+			first_indent = indent
+			real_indent = min_indent
+		}
+		s = strings.Repeat(" ", real_indent) + trimmed
 		if i != 0 {
 			new_tpl += "\n"
 		}
