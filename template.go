@@ -3,7 +3,6 @@ package gocli
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 	"text/template"
@@ -84,14 +83,14 @@ func (t TemplateManager) AddFunction(name string, function any) {
 	t.CustomFuncs[name] = function
 }
 
-func (t TemplateManager) makeError(key string, obj interface{}) error {
-	buf := bytes.NewBuffer(nil)
+// func (t TemplateManager) makeError(key string, obj interface{}) error {
+// 	buf := bytes.NewBuffer(nil)
 
-	template_str := t.GetMessage(key)
-	templ := template.Must(template.New("err").Funcs(t.CustomFuncs).Parse(template_str))
-	templ.Execute(buf, obj)
-	return errors.New(buf.String())
-}
+// 	template_str := t.GetMessage(key)
+// 	templ := template.Must(template.New("err").Funcs(t.CustomFuncs).Parse(template_str))
+// 	templ.Execute(buf, obj)
+// 	return errors.New(buf.String())
+// }
 
 func (t TemplateManager) GetMessage(key string, a ...interface{}) string {
 

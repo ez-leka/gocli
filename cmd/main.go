@@ -255,14 +255,71 @@ var configCmd = gocli.Command{
 	},
 }
 
+var argsAndCommands = gocli.Command{
+	Name:        "get",
+	Alias:       []string{"list"},
+	Description: "Display one or many resources",
+	Usage: `
+		test get [(-o|--output=)json|yaml|table] <resource-type> [<resource-name>]
+	
+	Examples:
+		# List all resourses in specified format
+		test get function -o json
+	
+		`,
+	Commands: []*gocli.Command{
+		{
+			Name:             "metrics",
+			Description:      "Get time metrics and usage inromation for function",
+			ValidationGroups: []string{"metrics"},
+			Optional:         true,
+			Flags: []gocli.IFlag{
+				&gocli.Flag[gocli.String]{
+					Name:    "from",
+					Short:   'f',
+					Usage:   "timestamp ",
+					Default: "",
+				},
+				&gocli.Flag[gocli.String]{
+					Name:    "to",
+					Short:   't',
+					Usage:   "timestamp ",
+					Default: "",
+				},
+			},
+			Args: []gocli.IArg{
+				&gocli.Arg[gocli.String]{
+					Name:  "usage",
+					Usage: "extra argument for thsi command only",
+				},
+			},
+		},
+	},
+	Args: []gocli.IArg{
+		&gocli.Arg[gocli.OneOf]{
+			Name:             "resourse-type",
+			Hints:            []string{"node(s)", "function(s)", "user(s)", "metrics"},
+			Required:         true,
+			Usage:            "type of the resource to get",
+			ValidationGroups: []string{"resources"},
+		},
+		&gocli.Arg[[]gocli.String]{
+			Name:             "resource-name",
+			Usage:            "Name of the resource",
+			ValidationGroups: []string{"resources", "metrics"},
+		},
+	},
+}
+
 func main() {
 
 	//testHelpFlag()
 	// testHelpCommand()
 	// testFlagArgumentParsing()
-	//testValidationGrouping()
-	// testOptionalCommand()
+	testValidationGrouping()
+	testOptionalCommand()
 	testUngroupedCommand()
+	testMixOfArgsAndCommands()
 
 }
 func makeApp() *gocli.Application {
@@ -339,6 +396,80 @@ func testUngroupedCommand() {
 	fmt.Println(args)
 	err := app.Run(args)
 	// should fail because no required args
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+}
+
+func testMixOfArgsAndCommands() {
+	app := makeApp()
+	app.Terminate(nil)
+
+	app.AddCommand(argsAndCommands)
+
+	args := []string{"test", "get", "function", "fun1"}
+	fmt.Println(args)
+	err := app.Run(args)
+	// should pass
+	if err != nil {
+		fmt.Println("FAILED")
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "metrics", "fun1"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should pass
+	if err != nil {
+		fmt.Println("FAILED")
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "metrics", "fun1", "--from", "01/01/2023 04:01:00 PM"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should pass
+	if err != nil {
+		fmt.Println("FAILED")
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "function", "metrics"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should pass  - metrics becomes a function name as functions and commands canno tbe inrespursed
+	if err != nil {
+		fmt.Println("FAILED")
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "metrics", "func1", "test"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should pass - test is optional sub-command specific argument
+	if err != nil {
+		fmt.Println("FAILED")
+	} else {
+		fmt.Println("PASSED")
+	}
+	fmt.Println("------------------------")
+
+	args = []string{"test", "get", "jobs"}
+	fmt.Println(args)
+	err = app.Run(args)
+	// should fail - unknown argument value
 	if err != nil {
 		fmt.Println("PASSED")
 	} else {

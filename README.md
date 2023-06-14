@@ -71,7 +71,9 @@ More examples can be found in cmd/main.go
 ### Commands
 Commands can be grouped into categories for help printout. If some commands do have category and some do not, those without a category will appper in the list as "Miscellanuious Commands" (this can be changed by changing corresponding template - see Templates). If no command has category, all commands will be listed alphabetically under "Commands" (this can be changed by changing corresponding template - see Templates)
 
-Commands can have either positined arguments or sub-commands 
+Commands can have  positined arguments and non-optional subcommands.
+
+If command needs to have either positined argument or sub-command, subcommand MUST have Optional:true and a Validation group. All agruments of parent command(s) that are still relevant to this subcommand must have this validation group listed in their own ValidationGroups. Arguments specified as part of  the subcommand definition do not require validation group to be set and will be added after all relevant arguments of parent command(s)
 
 The following example shows update command with flag/argument grouping and custom templated usage 
 
@@ -321,24 +323,29 @@ the file <language>-strings.go will be genetated in the directory translations
 	VersionFlagUsageTemplate    = `show version`
 	HelpFlagUsageTemplate       = `Show context-sensitive help`
 
-	FlagLongExistsTemplate        = `flag --{{.Name}} already exists`
-	FlagShortExistsTemplate       = `flag -{{.Short}} already exists`
-	MixArgsCommandsTemplate       = `can't mix Arg()s with Command()s`
-	UnknownArgument               = `unknown argument {{.Name}}`
-	UnknownFlagTemplate           = `unknow {{.Prefix}}{{.Name}} flag`
-	UnexpectedFlagValueTemplate   = `expected argument for flag {{.Prefix}}{{.Name} {{if .Extra}got '{{.Extra}}'{{end}}}}`
-	UnexpectedTokenTemplate       = `expected {{.Extra}} but got {{.Name}}`
-	WrongFlagArgumentTypeTemplate = `wrong {{.GetType}} type`
-	FlagAlreadySet                = `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on colland line`
-	NoHintsForEnumArg             = `no hints speciffied for argument {{.GetName}}`
-	UnknownArgumentValue          = `unsupported value {{.Extra}} for argument {{.Name}}`
-	MissingRequired               = `required {{.GetType}} --{{.Name}}{{.Short|Rune}} is missing `
-
-	FormatCommandsCategory    = "Commands"
-	FormatMisCommandsCategory = "Miscellaneous Commands"
-	FormatFlagWithShort       = "-%c, --%s"
-	FormatFlagNoShort         = "--%s"
-	FormatArg                 = "%s"
+	"Error":                         "Error: %s",
+	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
+	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
+	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
+	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
+	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
+	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type`,
+	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on command line`,
+	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
+	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidTimeFormat":             `invalid timestamp string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"MissingRequiredFlag":           `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
+	"MissingRequiredArg":            `required {{.GetType}} {{.GetPlaceholder}} is missing `,
+	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,
+	"NoUniqueFlagArgCommandInGroup": `must specify flag, argument or command. Try --help`,
+	"FlagValidationFailed":          `Invalid flag value {{.Extra}} for flag --{{.Element.Name}}{{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}})`,
+	"CommandRequired":               `Command required. Try --help`,
+	"FormatCommandsCategory":        "Commands",
+	"FormatMisCommandsCategory":     "Miscellaneous Commands",
+	"FormatFlagWithShort":           "-%c, --%s",
+	"FormatFlagNoShort":             "--%s",
+	"FormatFlagShort":               "-%c",
+	"FormatArg":                     "%s",
 ```
 Description and Usage values for commands, flags and arguments can be a go tamplate and can only refer to its own object. 
 

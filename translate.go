@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/ez-leka/gocli"
 )
@@ -42,12 +41,8 @@ func main() {
 
 	_, err = fmt.Fprintf(w, "var %sEntries = i18n.Entries{\n", language)
 	check_err(err)
-	for key, _ := range gocli.GoCliStrings {
-		explanation := "go tamplate or plain string"
-		if strings.Contains(key, "Format") {
-			explanation = "fmt.Printf style format string"
-		}
-		_, err = fmt.Fprintf(w, "\t\"%s\": `%s`,\n", key, explanation)
+	for key, val := range gocli.GoCliStrings {
+		_, err = fmt.Fprintf(w, "\t\"%s\": `%s`,\n", key, val)
 		check_err(err)
 	}
 	_, err = fmt.Fprintln(w, "}")

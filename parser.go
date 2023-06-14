@@ -2,6 +2,9 @@ package gocli
 
 import (
 	"strings"
+
+	"github.com/ez-leka/gocli/i18n"
+	"golang.org/x/exp/slices"
 )
 
 // ParseContext holds the current context of the parser.
@@ -9,6 +12,7 @@ type ParseContext struct {
 	CurrentCommand   *Command
 	mixArgsAndFlags  bool
 	argsOnly         bool
+	noCommands       bool
 	cli_args         []string
 	flags_lookup     map[string]IFlag
 	arguments_lookup []IArg // arguments are positioned so array , not a map
@@ -32,21 +36,47 @@ func (ctx *ParseContext) nextArg() IArg {
 func (ctx *ParseContext) mergeFlags(flags []IFlag) error {
 	for _, flag := range flags {
 		if _, ok := ctx.flags_lookup[flag.GetName()]; ok {
-			return templateManager.makeError("FlagLongExistsTemplate", flag)
+			return i18n.NewError("FlagLongExistsTemplate", flag)
 		}
 		if _, ok := ctx.flags_lookup[string(flag.GetShort())]; ok {
-			return templateManager.makeError("FlagShortExistsTemplate", flag)
+			return i18n.NewError("FlagShortExistsTemplate", flag)
 		}
 		ctx.flags_lookup[flag.GetName()] = flag
 		ctx.flags_lookup[string(flag.GetShort())] = flag
 	}
+
 	return nil
 }
 
 func (ctx *ParseContext) mergeArgs(args []IArg) error {
+	// because arguments are positined we have to remove all arguments that do not belong to the group of current command
+	current_cmd_groups := ctx.CurrentCommand.GetValidationGroups()
+	if len(current_cmd_groups) > 0 {
+		// current connamd has validation  group restrictions
+		for i := 0; i < len(ctx.arguments_lookup); i++ {
+			groups := ctx.arguments_lookup[i].GetValidationGroups()
+			if len(groups) == 0 {
+				//ungrouped arg, belongs to every group - leave it
+				continue
+			}
+			in_group := false
+			for _, g := range current_cmd_groups {
+				idx := slices.Index(groups, g)
+				if idx != -1 {
+					in_group = true
+					break
+				}
+			}
+			if !in_group {
+				ctx.arguments_lookup = append(ctx.arguments_lookup[:i], ctx.arguments_lookup[i+1:]...)
+				i--
+			}
+		}
+	}
+	// add command specific arguments
 	ctx.arguments_lookup = append(ctx.arguments_lookup, args...)
-	return nil
 
+	return nil
 }
 
 func (ctx *ParseContext) popCliArg() (string, bool) {
@@ -65,6 +95,7 @@ func (ctx *ParseContext) parse(app *Application, args []string) error {
 	var err error
 	// reset context
 	ctx.argsOnly = false
+	ctx.noCommands = false
 	ctx.arg_pos = 0
 	// crear out all flags and args - should only bee needed if Run is called muptiple times
 	for _, a := range ctx.arguments_lookup {
@@ -81,9 +112,9 @@ func (ctx *ParseContext) parse(app *Application, args []string) error {
 	// initiaze context
 	ctx.mixArgsAndFlags = app.MixArgsAndFlags
 	ctx.cli_args = args
+	ctx.CurrentCommand = &app.Command
 	ctx.mergeFlags(app.Flags)
 	ctx.mergeArgs(app.Args)
-	ctx.CurrentCommand = &app.Command
 
 	for token, ok := ctx.popCliArg(); ok; token, ok = ctx.popCliArg() {
 		if ctx.argsOnly || token == "-" || token == "--" {
@@ -130,29 +161,35 @@ func (ctx *ParseContext) parse(app *Application, args []string) error {
 }
 func (ctx *ParseContext) processArg(token string) error {
 
-	if ctx.CurrentCommand.HasSubCommands() {
-		cmd, ok := ctx.CurrentCommand.commands_map[token]
-		if !ok {
-			return templateManager.makeError("UnexpectedTokenTemplate", TokenTemplateContext{Name: token, Extra: "command"})
-		}
+	if cmd, ok := ctx.CurrentCommand.commands_map[token]; ok && !ctx.noCommands {
+		// this is command
+
 		ctx.CurrentCommand = cmd
 		ctx.mergeArgs(cmd.Args)
 		ctx.mergeFlags(cmd.Flags)
-	} else if len(ctx.arguments_lookup) > 0 {
+		return nil
+	}
+	// was not a sub-command 0check for argument
+	if len(ctx.arguments_lookup) > 0 {
+		// we got argument - no more commands
+		ctx.noCommands = true
 		if !ctx.mixArgsAndFlags {
 			// no more flags
 			ctx.argsOnly = true
 		}
 		arg := ctx.nextArg()
 		if arg == nil {
-			return templateManager.makeError("UnknownArgument", TokenTemplateContext{Name: token})
+			return i18n.NewError("UnknownArgument", TokenTemplateContext{Name: token})
 		}
 		err := arg.SetValue(token)
 		if err != nil {
 			return err
 		}
+		return nil
 	}
-	return nil
+
+	return i18n.NewError("UnexpectedTokenTemplate", TokenTemplateContext{Name: token, Extra: "command"})
+
 }
 
 func (ctx *ParseContext) processLongFlag(flag_token string) error {
@@ -170,7 +207,7 @@ func (ctx *ParseContext) processLongFlag(flag_token string) error {
 	// find flag
 	flag, ok := ctx.flags_lookup[flag_name]
 	if !ok {
-		return templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: flag_name}})
+		return i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: flag_name}})
 	}
 
 	// figure out flag value
@@ -185,13 +222,13 @@ func (ctx *ParseContext) processLongFlag(flag_token string) error {
 			// flag value must be next cli argument
 			flag_value, ok = ctx.popCliArg()
 			if !ok {
-				templateManager.makeError("UnexpectedFlagValueTemplate", ElementTemplateContext{Element: flag, Extra: flag_value})
+				i18n.NewError("UnexpectedFlagValueTemplate", ElementTemplateContext{Element: flag, Extra: flag_value})
 			}
 		}
 	}
 	err := flag.SetValue(flag_value)
 	if err != nil {
-		return templateManager.makeError("FlagValidationFailed", ElementTemplateContext{Element: flag, Extra: flag_value})
+		return i18n.NewError("FlagValidationFailed", ElementTemplateContext{Element: flag, Extra: flag_value})
 	}
 
 	return nil
@@ -222,17 +259,17 @@ func (ctx *ParseContext) processShortFlag(flag_token string) error {
 					// next argument is a flag value
 					flag_value, ok = ctx.popCliArg()
 					if !ok {
-						return templateManager.makeError("UnexpectedFlagValueTemplate", ElementTemplateContext{Element: flag, Extra: flag_value})
+						return i18n.NewError("UnexpectedFlagValueTemplate", ElementTemplateContext{Element: flag, Extra: flag_value})
 					}
 				}
 				err := flag.SetValue(flag_value)
 				if err != nil {
-					return templateManager.makeError("FlagValidationFailed", ElementTemplateContext{Element: flag, Extra: flag_value})
+					return i18n.NewError("FlagValidationFailed", ElementTemplateContext{Element: flag, Extra: flag_value})
 				}
 				return nil
 			}
 		} else {
-			return templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: string(r)}})
+			return i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: string(r)}})
 		}
 	}
 
@@ -284,7 +321,7 @@ func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValid
 			if vo.IsSetByUser() {
 				if set_in_group != "" && set_in_group != g_name {
 					// have values set for more then one exclusive group
-					return []IValidatable{}, templateManager.makeError("FlagsArgsFromMultipleGroups", TokenTemplateContext{Name: va_set.GetName(), Extra: vo.GetName()})
+					return []IValidatable{}, i18n.NewError("FlagsArgsFromMultipleGroups", TokenTemplateContext{Name: va_set.GetName(), Extra: vo.GetName()})
 				}
 				va_set = vo
 				set_in_group = g_name
@@ -293,7 +330,7 @@ func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValid
 	}
 	var final_group []IValidatable
 	if len(groups) > 1 && len(unique_groups) == 0 {
-		return []IValidatable{}, templateManager.makeError("NoUniqueFlagArgCommandInGroup", nil)
+		return []IValidatable{}, i18n.NewError("NoUniqueFlagArgCommandInGroup", nil)
 	} else if len(unique_groups) == 0 || set_in_group == "" {
 		// there is only one non unique group or no unique group has anythig set
 		for _, g := range groups {
@@ -313,7 +350,7 @@ func (ctx *ParseContext) validate(app *Application) error {
 
 	// we also show help if last parsed command was not the leaf of the command chain
 	if !ctx.CurrentCommand.isLeaf() {
-		return templateManager.makeError("CommandRequired", ctx.CurrentCommand)
+		return i18n.NewError("CommandRequired", ctx.CurrentCommand)
 	}
 
 	// create a single map of things to validate
@@ -365,12 +402,12 @@ func (ctx *ParseContext) validate(app *Application) error {
 	}
 	for _, vo := range args {
 		if vo.IsRequired() && !vo.IsSetByUser() {
-			return templateManager.makeError("MissingRequiredArg", vo)
+			return i18n.NewError("MissingRequiredArg", vo)
 		}
 	}
 	for _, vo := range flags {
 		if vo.IsRequired() && !vo.IsSetByUser() {
-			return templateManager.makeError("MissingRequiredFlag", vo)
+			return i18n.NewError("MissingRequiredFlag", vo)
 		}
 	}
 

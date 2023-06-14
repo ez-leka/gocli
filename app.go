@@ -69,7 +69,7 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 
 	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
 	if idx < 0 {
-		return nil, templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Arg[String]{Name: name}})
+		return nil, i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Arg[String]{Name: name}})
 	}
 	return a.context.arguments_lookup[idx], nil
 }
@@ -82,7 +82,7 @@ func (a *Application) GetStringArg(name string) (string, error) {
 		return "", err
 	}
 	if arg.IsCumulative() {
-		return "", templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
+		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
 	}
 	return arg.GetValue().(string), nil
 }
@@ -97,13 +97,13 @@ func (a *Application) GetListArg(name string) ([]string, error) {
 	if arg.IsCumulative() {
 		return arg.GetValue().([]string), nil
 	}
-	return nil, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
+	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
 }
 
 func (a *Application) GetFlag(name string) (IFlag, error) {
 	f, ok := a.context.flags_lookup[name]
 	if !ok {
-		return nil, templateManager.makeError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: name}})
+		return nil, i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: name}})
 	}
 
 	return f, nil
@@ -116,7 +116,7 @@ func (a *Application) GetBoolFlag(name string) (bool, error) {
 		return false, err
 	}
 	if !f.IsBool() {
-		return false, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
+		return false, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 	return f.GetValue().(bool), nil
 }
@@ -127,7 +127,7 @@ func (a *Application) GetStringFlag(name string) (string, error) {
 		return "", err
 	}
 	if f.IsBool() || f.IsCumulative() {
-		return "", templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
+		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 
 	return f.GetValue().(string), nil
@@ -141,7 +141,7 @@ func (a *Application) GetListFlag(name string) ([]string, error) {
 	if f.IsCumulative() {
 		return f.GetValue().([]string), nil
 	}
-	return nil, templateManager.makeError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
+	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 
 }
 
@@ -220,9 +220,9 @@ func (a *Application) checkHelpRequested() {
 func (a *Application) printUsage(err error) {
 	if err != nil {
 		if int_err, ok := err.(*i18n.Error); ok {
-			fmt.Fprintln(a.errorWriter, templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData()))
+			templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
 		} else {
-			fmt.Fprintln(a.errorWriter, templateManager.GetMessage("Error", err))
+			templateManager.GetMessage("Error", err)
 		}
 	}
 
@@ -247,9 +247,6 @@ func (a *Application) FormatUsage() error {
 func (a *Application) Init() error {
 	if a.initialized {
 		return nil
-	}
-	if len(a.Commands) > 0 && len(a.Args) > 0 {
-		return templateManager.makeError("MixArgsCommandsTemplate", a.Command)
 	}
 
 	// add help flag - it is always present

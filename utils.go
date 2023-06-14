@@ -55,7 +55,7 @@ func setFlagArgValue(fa IFlagArg, value string) error {
 	}
 
 	if is_flag && !fa.IsCumulative() && fa.IsSetByUser() {
-		return i18n.NewError("FlagAlreadySet")
+		return i18n.NewError("FlagAlreadySet", fa)
 	}
 
 	if fa.IsCumulative() {
