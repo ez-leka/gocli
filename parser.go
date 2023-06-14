@@ -245,16 +245,15 @@ func (ctx *ParseContext) processShortFlag(flag_token string) error {
 func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValidatable, error) {
 
 	groups := make(map[string][]IValidatable)        // hold all objects in every group
-	unique_groups := make(map[string][]IValidatable) // hold objects that only have one group, i.e objects that ar emutually exclusive
+	unique_groups := make(map[string][]IValidatable) // hold objects that only have one group, i.e objects that are mutually exclusive
+	ungrouped := make([]IValidatable, 0)             // hols all ungrouped; they will be added to final group
+
 	// group arguments, flags, and commands before validation
 	for _, vo := range set {
 		obj_groups := vo.GetValidationGroups()
 		if len(obj_groups) == 0 {
 			// ungrouped element
-			//all to all groups
-			for g_name, g := range groups {
-				groups[g_name] = append(g, vo)
-			}
+			ungrouped = append(ungrouped, vo)
 		}
 		for _, g_name := range obj_groups {
 			g, ok := groups[g_name]
@@ -292,16 +291,21 @@ func (ctx *ParseContext) validateGrouping(set map[string]IValidatable) ([]IValid
 			}
 		}
 	}
+	var final_group []IValidatable
 	if len(groups) > 1 && len(unique_groups) == 0 {
 		return []IValidatable{}, templateManager.makeError("NoUniqueFlagArgCommandInGroup", nil)
 	} else if len(unique_groups) == 0 || set_in_group == "" {
 		// there is only one non unique group or no unique group has anythig set
 		for _, g := range groups {
-			return g, nil
+			final_group = g
 		}
+	} else {
+		// we have disting unique group
+		final_group = groups[set_in_group]
 	}
-	// we have disting unique group
-	return groups[set_in_group], nil
+	//merge  ungrouped into group before retruning
+	final_group = append(final_group, ungrouped...)
+	return final_group, nil
 }
 func (ctx *ParseContext) validate(app *Application) error {
 

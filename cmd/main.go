@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/mail"
 
 	"github.com/ez-leka/gocli"
 	"github.com/ez-leka/gocli/i18n"
@@ -189,13 +190,80 @@ var deleteCmd = gocli.Command{
 	},
 }
 
+var configCmd = gocli.Command{
+	Name:        "config",
+	Description: "Manage kontain config file",
+	Commands: []*gocli.Command{
+		{
+			Name:        "set",
+			Description: "change configuration setting",
+			Usage: `
+			Example:
+				{{.FullCommand}} admin@company.com "SecretUYIUYIUTYTUYTUYT" https://faas.kontain.app:8443
+				`,
+			Args: []gocli.IArg{
+				&gocli.Arg[gocli.Email]{
+					Name:     "email",
+					Usage:    "--email <email used to register>",
+					Required: true,
+					Validator: func(a *gocli.Application, arg gocli.IArg) error {
+						email := arg.GetValue().(string)
+						_, err := mail.ParseAddress(email)
+						return err
+					},
+				},
+				&gocli.Arg[gocli.String]{
+					Name:     "secret",
+					Usage:    "---secret <API Key secret provided to you>",
+					Required: true,
+				},
+				&gocli.Arg[gocli.String]{
+					Name:     "url",
+					Usage:    "--url <Server url> - https://faas.kontain.app:8443",
+					Required: true,
+				},
+			},
+		},
+		{
+			Name:        "verify",
+			Description: "Verify credentials and connectivity to server",
+			Usage: `
+			{{.FullCommand}}
+	
+			Use this command to verify your credentials and server connectivity configured via kctl configure 
+			`,
+		},
+		{
+			Name:        "view",
+			Description: "Display kontain config settings",
+			Usage: `
+			{{.FullCommand}}
+	
+			Use this command to verify your credentials and server connectivity configured via kctl configure 
+			`,
+			Flags: []gocli.IFlag{
+				&gocli.Flag[gocli.OneOf]{
+					Name:     "output",
+					Short:    'o',
+					Usage:    "Output format",
+					Hints:    []string{"json", "table", "yaml"},
+					Default:  "table",
+					Required: false,
+				},
+			},
+		},
+	},
+}
+
 func main() {
 
 	//testHelpFlag()
 	// testHelpCommand()
 	// testFlagArgumentParsing()
 	//testValidationGrouping()
-	testOptionalCommand()
+	// testOptionalCommand()
+	testUngroupedCommand()
+
 }
 func makeApp() *gocli.Application {
 	app := gocli.New("en_us")
@@ -261,6 +329,24 @@ func testHelpCommand() {
 	}
 }
 
+func testUngroupedCommand() {
+	app := makeApp()
+	app.Terminate(nil)
+
+	app.AddCommand(configCmd)
+
+	args := []string{"test", "config", "set"}
+	fmt.Println(args)
+	err := app.Run(args)
+	// should fail because no required args
+	if err != nil {
+		fmt.Println("PASSED")
+	} else {
+		fmt.Println("FAILED")
+	}
+	fmt.Println("------------------------")
+
+}
 func testOptionalCommand() {
 	app := makeApp()
 	app.Terminate(nil)
