@@ -2,7 +2,6 @@ package gocli
 
 import (
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/ez-leka/gocli/i18n"
@@ -46,31 +45,7 @@ func inHints(hints []string, value string) string {
 	return ""
 }
 
-func getValueFromHints(fa IFlagArg, value string, is_flag bool) (string, error) {
-	hints := fa.GetHints()
-
-	if len(hints) == 0 {
-		if is_flag {
-			return "", i18n.NewError("NoHintsForEnumArg", FlagTemplateContext{Name: fa.GetName()})
-		} else {
-			return "", i18n.NewError("NoHintsForEnumArg", ArgTemplateContext{Name: fa.GetName()})
-		}
-	}
-
-	true_value := inHints(hints, value)
-	if true_value == "" {
-		if is_flag {
-			return "", i18n.NewError("UnknownArgumentValue", FlagTemplateContext{Name: fa.GetName(), Extra: value})
-		} else {
-			return "", i18n.NewError("UnknownArgumentValue", ArgTemplateContext{Name: fa.GetName(), Extra: value})
-		}
-	}
-
-	return true_value, nil
-}
-
 func setFlagArgValue(fa IFlagArg, value string) error {
-	var err error
 	dest := fa.getDestination()
 	rv := reflect.ValueOf(dest).Elem()
 
@@ -79,43 +54,26 @@ func setFlagArgValue(fa IFlagArg, value string) error {
 		is_flag = true
 	}
 
-	switch dest.(type) {
-	case *Bool:
-		if is_flag && fa.IsSetByUser() {
-			return i18n.NewError("FlagAlreadySet")
-		}
-
-		v, err := strconv.ParseBool(value)
-		if err != nil {
-			return err
-		}
-		rv.Set(reflect.ValueOf(Bool(v)))
-	case *OneOf:
-		// validate value against hints
-		value, err = getValueFromHints(fa, value, is_flag)
-		if err != nil {
-			return err
-		}
-		if is_flag && fa.IsSetByUser() {
-			return i18n.NewError("FlagAlreadySet")
-		}
-		rv.Set(reflect.ValueOf(OneOf(value)))
-
-	case *String:
-		if is_flag && fa.IsSetByUser() {
-			return i18n.NewError("FlagAlreadySet")
-		}
-		rv.Set(reflect.ValueOf(String(value)))
-
-	case *List:
-		rv.Set(reflect.Append(rv, reflect.ValueOf(value)))
-	case *OneOfList:
-		true_value, err := getValueFromHints(fa, value, is_flag)
-		if err != nil {
-			return err
-		}
-		rv.Set(reflect.Append(rv, reflect.ValueOf(true_value)))
+	if is_flag && !fa.IsCumulative() && fa.IsSetByUser() {
+		return i18n.NewError("FlagAlreadySet", fa)
 	}
+
+	if fa.IsCumulative() {
+		t := reflect.TypeOf(dest).Elem().Elem()
+		new_value := reflect.New(t).Interface()
+		err := new_value.(ISetable).FromString(value, fa)
+		if err != nil {
+			return err
+		}
+		rv.Set(reflect.Append(rv, reflect.ValueOf(new_value).Elem()))
+	} else {
+		setable := dest.(ISetable)
+		err := setable.FromString(value, fa)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -123,35 +81,35 @@ func getFlagArgValue(fa IFlagArg) interface{} {
 
 	dest := fa.getDestination()
 
-	switch v := dest.(type) {
-	case *String:
-		return string(*(v))
-	case *Bool:
-		return bool(*(v))
-	case *List:
-		cumulative := *(v)
-		val := []string{}
-		for _, v := range cumulative {
-			val = append(val, v)
-		}
-		return val
+	rt := reflect.TypeOf(dest).Elem()
+	rv := reflect.ValueOf(dest).Elem()
 
-	case *OneOfList:
-		cumulative := *(v)
-		val := []string{}
-		for _, v := range cumulative {
-			val = append(val, v)
-		}
-		return val
-	case *OneOf:
-		return string(*(dest.(*OneOf)))
+	if fa.IsCumulative() {
+		tp := reflect.New(rt.Elem()).Interface().(ISetable).GetReturnType()
+		elemSlice := reflect.MakeSlice(reflect.SliceOf(tp), 0, 0)
 
+		for i := 0; i < rv.Len(); i++ {
+			item := rv.Index(i).Addr().Interface()
+			elemSlice = reflect.Append(elemSlice, reflect.ValueOf(item.(ISetable).GetValue()))
+		}
+		return elemSlice.Interface()
+	} else {
+		return dest.(ISetable).GetValue()
 	}
-	return nil
 }
 
 func IsType[T TFlag | TArg](fa IFlagArg) bool {
 
 	_, ok := any(fa.getDestination()).(*T)
 	return ok
+}
+
+func IsCumulative(fa IFlagArg) bool {
+	rt := reflect.TypeOf(fa.getDestination()).Elem()
+	switch rt.Kind() {
+	case reflect.Slice:
+		return true
+	default:
+		return false
+	}
 }

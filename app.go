@@ -20,16 +20,17 @@ type Application struct {
 	// Help flag. Can be customized  before calling Run
 	HelpFlag IFlag
 	// Version flag. Can be customized before calling Run
-	VersionFlag     IFlag
-	ShowHelpCommand bool
-	MixArgsAndFlags bool
-	Author          string
-	Version         string
-	errorWriter     io.Writer // Destination for errors.
-	usageWriter     io.Writer // Destination for usage
-	terminate       func(status int)
-	context         *ParseContext
-	language        language.Tag
+	VersionFlag           IFlag
+	ShowHelpCommand       bool
+	MixArgsAndFlags       bool
+	Author                string
+	Version               string
+	errorWriter           io.Writer // Destination for errors.
+	usageWriter           io.Writer // Destination for usage
+	terminate             func(status int)
+	context               *ParseContext
+	language              language.Tag
+	stopActionPropagation bool
 }
 
 // Creates a new gocli application.
@@ -69,7 +70,7 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 
 	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
 	if idx < 0 {
-		templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+		return nil, i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Arg[String]{Name: name}})
 	}
 	return a.context.arguments_lookup[idx], nil
 }
@@ -81,87 +82,67 @@ func (a *Application) GetStringArg(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !IsType[String](arg) {
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-	}
-	return arg.GetValue().(string), nil
-}
-
-func (a *Application) GetOneOfArg(name string) (string, error) {
-
-	// find argument by name
-	arg, err := a.GetArgument(name)
-	if err != nil {
-		return "", err
-	}
-	if !IsType[OneOf](arg) {
-
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-
+	if arg.IsCumulative() {
+		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
 	}
 	return arg.GetValue().(string), nil
 }
 
 func (a *Application) GetListArg(name string) ([]string, error) {
 	// find argument by name
-	idx := slices.IndexFunc(a.context.arguments_lookup, func(arg IArg) bool { return arg.GetName() == name })
-	if idx < 0 {
-		templateManager.makeError("UnknownFlagTemplate", ArgTemplateContext{Name: name})
+	arg, err := a.GetArgument(name)
+	if err != nil {
+		return []string{}, err
 	}
-	arg := a.context.arguments_lookup[idx]
 
-	if IsType[List](arg) || IsType[OneOfList](arg) {
+	if arg.IsCumulative() {
 		return arg.GetValue().([]string), nil
 	}
-	return []string{}, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
+}
+
+func (a *Application) GetFlag(name string) (IFlag, error) {
+	f, ok := a.context.flags_lookup[name]
+	if !ok {
+		return nil, i18n.NewError("UnknownElementTemplate", ElementTemplateContext{Element: &Flag[String]{Name: name}})
+	}
+
+	return f, nil
 }
 
 func (a *Application) GetBoolFlag(name string) (bool, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return false, templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return false, err
 	}
 	if !f.IsBool() {
-		return false, templateManager.makeError("WrongFlagArgumentTypeTemplate", FlagTemplateContext{Name: name})
+		return false, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 	return f.GetValue().(bool), nil
 }
 
 func (a *Application) GetStringFlag(name string) (string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return "", templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return "", err
 	}
-	if !IsType[String](f) {
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-	}
-
-	return f.GetValue().(string), nil
-}
-
-func (a *Application) GetOneOfFlag(name string) (string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return "", templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
-	}
-	if !IsType[OneOf](f) {
-
-		return "", templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
-
+	if f.IsBool() || f.IsCumulative() {
+		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 	}
 
 	return f.GetValue().(string), nil
 }
 
 func (a *Application) GetListFlag(name string) ([]string, error) {
-	f, ok := a.context.flags_lookup[name]
-	if !ok {
-		return []string{}, templateManager.makeError("UnknownFlagTemplate", FlagTemplateContext{Name: name})
+	f, err := a.GetFlag(name)
+	if err != nil {
+		return []string{}, err
 	}
-	if IsType[List](f) || IsType[OneOfList](f) {
+	if f.IsCumulative() {
 		return f.GetValue().([]string), nil
 	}
-	return []string{}, templateManager.makeError("WrongFlagArgumentTypeTemplate", ArgTemplateContext{Name: name})
+	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
 
 }
 
@@ -185,6 +166,9 @@ func (a *Application) SetWriter(w io.Writer) *Application {
 	a.usageWriter = w
 	return a
 }
+func (a *Application) Stop() {
+	a.stopActionPropagation = true
+}
 
 // Run :
 //   - parses command-line arguments,
@@ -202,6 +186,7 @@ func (a *Application) Run(args []string) (err error) {
 	err = a.context.parse(a, args[1:])
 	if err != nil {
 		a.printUsage(err)
+		return err
 	}
 
 	// if hel flag was set app will exit with succsess
@@ -211,12 +196,14 @@ func (a *Application) Run(args []string) (err error) {
 	err = a.context.validate(a)
 	if err != nil {
 		a.printUsage(err)
+		return err
 	}
 
 	// execute command actions
 	err = a.context.execute(a)
 	if err != nil {
-		a.printUsage(err)
+		a.printError(err)
+		return err
 	}
 
 	return err
@@ -228,18 +215,23 @@ func (a *Application) checkHelpRequested() {
 	if err != nil {
 		a.printUsage(err)
 	}
+
 	if need_help {
 		a.printUsage(nil)
 	}
 }
 
+func (a *Application) printError(err error) {
+
+	if int_err, ok := err.(*i18n.Error); ok {
+		templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
+	} else {
+		templateManager.GetMessage("Error", err)
+	}
+}
 func (a *Application) printUsage(err error) {
 	if err != nil {
-		if int_err, ok := err.(*i18n.Error); ok {
-			fmt.Fprintln(a.errorWriter, templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData()))
-		} else {
-			fmt.Fprintln(a.errorWriter, templateManager.GetMessage("Error", err))
-		}
+		a.printError(err)
 	}
 
 	if err := a.FormatUsage(); err != nil {
@@ -264,9 +256,6 @@ func (a *Application) Init() error {
 	if a.initialized {
 		return nil
 	}
-	if len(a.Commands) > 0 && len(a.Args) > 0 {
-		return templateManager.makeError("MixArgsCommandsTemplate", a.Command)
-	}
 
 	// add help flag - it is always present
 	help_short, _ := utf8.DecodeRuneInString(templateManager.GetMessage("HelpFlagShort"))
@@ -284,12 +273,12 @@ func (a *Application) Init() error {
 			Name:  templateManager.GetMessage("HelpCommandAndFlagName"),
 			Usage: templateManager.GetMessage("HelpCommandUsage"),
 			Args: []IArg{
-				&Arg[List]{
+				&Arg[[]String]{
 					Name:  command_arg_name,
 					Usage: templateManager.GetMessage("HelpCommandArgUsage"),
 				},
 			},
-			Action: func(app *Application, c *Command) error {
+			Action: func(app *Application, c *Command, in_data interface{}) (interface{}, error) {
 				command, err := a.GetListArg(command_arg_name)
 				if err != nil {
 					a.printUsage(nil)
@@ -298,7 +287,7 @@ func (a *Application) Init() error {
 
 				a.printUsage(nil)
 				a.terminate(0)
-				return nil
+				return nil, nil
 			},
 		}
 		// make help first command

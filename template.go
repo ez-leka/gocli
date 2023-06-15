@@ -1,8 +1,8 @@
 package gocli
 
 import (
+	"bufio"
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 	"text/template"
@@ -18,9 +18,6 @@ type TemplateManager struct {
 	localizer   i18n.Localizer
 }
 
-type IElementContext interface {
-	GetType() string
-}
 type TokenTemplateContext struct {
 	Name  string
 	Extra string
@@ -30,26 +27,10 @@ func (f TokenTemplateContext) GetType() string {
 	return "token"
 }
 
-type FlagTemplateContext struct {
-	Name   string
-	Short  rune
-	Extra  string
-	Prefix string
+type ElementTemplateContext struct {
+	Element IValidatable
+	Extra   string
 }
-
-func (f FlagTemplateContext) GetType() string {
-	return "flag"
-}
-
-type ArgTemplateContext struct {
-	Name  string
-	Extra string
-}
-
-func (f ArgTemplateContext) GetType() string {
-	return "argument"
-}
-
 type UsageTemplateContext struct {
 	AppName        string
 	CurrentCommand Command
@@ -102,25 +83,73 @@ func (t TemplateManager) AddFunction(name string, function any) {
 	t.CustomFuncs[name] = function
 }
 
-func (t TemplateManager) makeError(key string, obj interface{}) error {
-	buf := bytes.NewBuffer(nil)
+// func (t TemplateManager) makeError(key string, obj interface{}) error {
+// 	buf := bytes.NewBuffer(nil)
 
-	template_str := t.GetMessage(key)
-	templ := template.Must(template.New("err").Funcs(t.CustomFuncs).Parse(template_str))
-	templ.Execute(buf, obj)
-	return errors.New(buf.String())
-}
+// 	template_str := t.GetMessage(key)
+// 	templ := template.Must(template.New("err").Funcs(t.CustomFuncs).Parse(template_str))
+// 	templ.Execute(buf, obj)
+// 	return errors.New(buf.String())
+// }
 
 func (t TemplateManager) GetMessage(key string, a ...interface{}) string {
 
 	s := t.localizer.Sprintf(key, a...)
 	return s
 }
+
 func (t TemplateManager) formatTemplate(writer io.Writer, tpl string, obj any) error {
 	tpl_content := t.GetMessage(tpl, obj)
-	templ, err := template.New("temp_tpl").Funcs(t.CustomFuncs).Parse(tpl_content)
+	return t.doFormatTemplate(writer, tpl_content, obj, 0)
+}
+
+func (t TemplateManager) doFormatTemplate(writer io.Writer, tpl string, obj any, indent int) error {
+
+	// pre-format
+	// remove leading new lines
+	tpl = t.fixTemplateAlignment(tpl, indent)
+
+	templ, err := template.New("temp_tpl").Funcs(t.CustomFuncs).Parse(tpl)
 	if err != nil {
 		return err
 	}
 	return templ.Execute(writer, obj)
+}
+
+func (t TemplateManager) fixTemplateAlignment(tpl string, min_indent int) string {
+	tpl = strings.TrimPrefix(tpl, "\n")
+	tpl = strings.TrimSuffix(tpl, "\n")
+	tpl = strings.ReplaceAll(tpl, "\t", "    ")
+
+	new_tpl := ""
+	scanner := bufio.NewScanner(strings.NewReader(tpl))
+	i := 0
+	first_indent := 0
+	for scanner.Scan() {
+		s := scanner.Text()
+		trimmed := strings.TrimLeft(s, " \t")
+		indent := len(s) - len(trimmed)
+		real_indent := min_indent + indent - first_indent
+		if len(trimmed) == 0 {
+			if i == 0 {
+				// first empty line - ignore
+				continue
+			} else {
+				//empty line - no inden tneeded
+				real_indent = 0
+			}
+		}
+		if i == 0 {
+			first_indent = indent
+			real_indent = min_indent
+		}
+		s = strings.Repeat(" ", real_indent) + trimmed
+		if i != 0 {
+			new_tpl += "\n"
+		}
+		new_tpl += s
+		i++
+	}
+
+	return new_tpl
 }

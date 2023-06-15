@@ -3,7 +3,7 @@ package gocli
 type FlagValidator func(a *Application, f IFlag) error
 
 type TFlag interface {
-	String | List | Bool | OneOf
+	String | []String | Bool | OneOf | Email | []Email | File | []File | TimeStamp | []TimeStamp
 }
 
 type IFlag interface {
@@ -25,6 +25,10 @@ type Flag[T TFlag] struct {
 	isSetByUser      bool
 	ValidationGroups []string
 	Validator        FlagValidator
+}
+
+func (f *Flag[T]) GetType() string {
+	return "flag"
 }
 
 func (f *Flag[T]) Compare(ff IFlagArg) int {
@@ -56,7 +60,11 @@ func (f *Flag[T]) GetHints() []string {
 	return f.Hints
 }
 func (f *Flag[T]) GetPlaceholder() string {
-	return f.Placeholder
+	if f.Placeholder != "" {
+		return f.Placeholder
+	} else {
+		return f.Name
+	}
 }
 func (f *Flag[T]) SetPlaceholder(placeholder string) {
 	f.Placeholder = placeholder
@@ -80,10 +88,7 @@ func (f *Flag[T]) IsSetByUser() bool {
 }
 
 func (f *Flag[T]) IsCumulative() bool {
-	if IsType[List](f) || IsType[OneOfList](f) {
-		return true
-	}
-	return false
+	return IsCumulative(f)
 }
 
 func (f *Flag[T]) SetByUser() {

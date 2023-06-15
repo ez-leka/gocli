@@ -6,12 +6,13 @@ var GoCliStrings = i18n.Entries{
 	"AppUsageTemplate": `
 {{- define "CmdFlag"}}
 {{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{end -}}
-{{- if not .IsBool}}[=]<{{if .GetPlaceholder}}{{.GetPlaceholder}}{{else}}{{.GetName|ToUpper}}{{end}}>{{end -}}
+{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{end -}}
 {{- end -}}
 
-{{- define "CmdArg"}}<{{if .GetPlaceholder}}{{.GetPlaceholder}}{{else}}{{.GetName}}{{end}}>{{- end -}}
+{{- define "CmdArg"}} <{{.GetPlaceholder}}>{{- end -}}
 
 {{- define "CmdGroup"}}
+{{- if .Command}}{{Translate .Command}}{{end -}}
 {{- range .RequiredFlags}}{{template "CmdFlag" .}}{{end -}}
 {{- if .OptionalFlags}} [{{end -}}
 {{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}	
@@ -33,10 +34,10 @@ var GoCliStrings = i18n.Entries{
 {{end}}
 {{end}}
 
-{{FormatTemplate .CurrentCommand.Description .CurrentCommand}}
+{{FormatTemplate .CurrentCommand.Description .CurrentCommand 4}}
 {{if .CurrentCommand.Commands}}
   {{template "FormatCommandCategory" .CurrentCommand.Commands|CommandCategories}}
-{{end -}}
+{{end}}
 {{if .Flags -}}
 {{Translate "Flags"}}:
 {{.Flags|FlagsArgsToTwoColumns|TwoColumns}}
@@ -46,18 +47,18 @@ var GoCliStrings = i18n.Entries{
 {{.Args|FlagsArgsToTwoColumns|TwoColumns}}
 {{end -}}
 {{Translate "Usage"}}: 
-{{$groups := .CurrentCommand.GetValidationGroups}}
-{{$group_idx := 0}}
-{{.CurrentCommand.FullCommand}} 
-{{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped -}} 
+{{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
+{{- $group_idx := 0}}
+{{Indent 4}}{{.CurrentCommand.FullCommand}} 
+{{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped }} 
 {{- if $groups.Groups}} ({{end -}}
   {{- range $groups.Groups}}
   {{- if eq $group_idx 1}} | {{end}} 
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
-  {{- if $groups.Groups}} ){{end -}}
+  {{- if $groups.Groups}} ){{end}}
 {{if .CurrentCommand.Usage}}
-{{FormatTemplate .CurrentCommand.Usage .CurrentCommand }}
+{{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}
 `,
 	"HelpCommandAndFlagName":      `help`,
@@ -74,22 +75,26 @@ var GoCliStrings = i18n.Entries{
 	"Error":                         "Error: %s",
 	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
 	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
-	"MixArgsCommandsTemplate":       `can't mix Arg()s with Command()s`,
-	"UnknownArgument":               `unknown argument {{.Name}}`,
-	"UnknownFlagTemplate":           `unknow {{.Prefix}}{{.Name}} flag`,
-	"UnexpectedFlagValueTemplate":   `expected argument for flag {{.Prefix}}{{.Name} {{if .Extra}got '{{.Extra}}'{{end}}}}`,
+	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
+	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
 	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
-	"WrongFlagArgumentTypeTemplate": `wrong {{.GetType}} type`,
-	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on colland line`,
-	"NoHintsForEnumArg":             `no hints speciffied for argument {{.GetName}}`,
-	"UnknownArgumentValue":          `unsupported value {{.Extra}} for argument {{.Name}}`,
-	"MissingRequired":               `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
+	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type for {{.Element.Name}}`,
+	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on command line`,
+	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
+	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidTimeFormat":             `invalid timestamp string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"MissingRequiredFlag":           `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
+	"MissingRequiredArg":            `required {{.GetType}} {{.GetPlaceholder}} is missing `,
 	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,
-
-	"FormatCommandsCategory":    "Commands",
-	"FormatMisCommandsCategory": "Miscellaneous Commands",
-	"FormatFlagWithShort":       "-%c, --%s",
-	"FormatFlagNoShort":         "--%s",
-	"FormatFlagShort":           "-%c",
-	"FormatArg":                 "%s",
+	"NoUniqueFlagArgCommandInGroup": `must specify flag, argument or command. Try --help`,
+	"FlagValidationFailed":          `Invalid flag value {{.Extra}} for flag --{{.Element.Name}}{{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}})`,
+	"CommandRequired":               `Command required. Try --help`,
+	"FormatCommandsCategory":        "Commands",
+	"FormatMisCommandsCategory":     "Miscellaneous Commands",
+	"FormatFlagWithShort":           "-%c, --%s",
+	"FormatFlagNoShort":             "--%s",
+	"FormatFlagShort":               "-%c",
+	"FormatArg":                     "%s",
+	"FormatDefault":                 "(Default: %s)",
+	"FormatHints":                   "One of: %s",
 }

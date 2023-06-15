@@ -15,7 +15,7 @@ type Entries map[string]interface{}
 // to allow for localization
 type Error struct {
 	key string
-	obj interface{}
+	obj any
 }
 
 func (e *Error) Error() string {
@@ -26,10 +26,10 @@ func (e *Error) GetKey() string {
 	return e.key
 }
 
-func (e *Error) GetData() interface{} {
+func (e *Error) GetData() any {
 	return e.obj
 }
-func NewError(key string, obj ...interface{}) *Error {
+func NewError(key string, obj any) *Error {
 	return &Error{key: key, obj: obj}
 }
 
