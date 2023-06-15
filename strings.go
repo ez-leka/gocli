@@ -78,7 +78,7 @@ var GoCliStrings = i18n.Entries{
 	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
 	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
 	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
-	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type`,
+	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type for {{.Element.Name}}`,
 	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on command line`,
 	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
 	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,

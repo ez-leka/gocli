@@ -113,7 +113,10 @@ func (ctx *ParseContext) parse(app *Application, args []string) error {
 	ctx.mixArgsAndFlags = app.MixArgsAndFlags
 	ctx.cli_args = args
 	ctx.CurrentCommand = &app.Command
-	ctx.mergeFlags(app.Flags)
+	err = ctx.mergeFlags(app.Flags)
+	if err != nil {
+		return err
+	}
 	ctx.mergeArgs(app.Args)
 
 	for token, ok := ctx.popCliArg(); ok; token, ok = ctx.popCliArg() {
@@ -166,7 +169,11 @@ func (ctx *ParseContext) processArg(token string) error {
 
 		ctx.CurrentCommand = cmd
 		ctx.mergeArgs(cmd.Args)
-		ctx.mergeFlags(cmd.Flags)
+		err := ctx.mergeFlags(cmd.Flags)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 	// was not a sub-command 0check for argument
