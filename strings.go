@@ -12,7 +12,7 @@ var GoCliStrings = i18n.Entries{
 {{- define "CmdArg"}} <{{.GetPlaceholder}}>{{- end -}}
 
 {{- define "CmdGroup"}}
-{{- if .Command}}{{Translate .Command}}{{end -}}
+{{- if .Command}} <{{Translate .Command}}>{{end -}}
 {{- range .RequiredFlags}}{{template "CmdFlag" .}}{{end -}}
 {{- if .OptionalFlags}} [{{end -}}
 {{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}	
@@ -30,7 +30,7 @@ var GoCliStrings = i18n.Entries{
 {{define "FormatCommandCategory"}}
 {{range .}}
 {{.Name}}
-{{.Commands|CommandsToTwoColumns|TwoColumns}}
+{{.GetCommands|CommandsToTwoColumns|TwoColumns}}
 {{end}}
 {{end}}
 
@@ -50,13 +50,15 @@ var GoCliStrings = i18n.Entries{
 {{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
 {{- $group_idx := 0}}
 {{Indent 4}}{{.CurrentCommand.FullCommand}} 
-{{- template "CmdGroup" .CurrentCommand.GetGlobalFlags}} {{template "CmdGroup" $groups.Ungrouped }} 
-{{- if $groups.Groups}} ({{end -}}
+{{- if $groups.Ungrouped -}}
+	{{- template "CmdGroup" $groups.Ungrouped -}}
+{{- end -}}
+{{- if gt (len $groups.Groups) 1}} ({{end -}}
   {{- range $groups.Groups}}
   {{- if eq $group_idx 1}} | {{end}} 
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
-  {{- if $groups.Groups}} ){{end}}
+  {{- if gt (len $groups.Groups) 1}} ){{end}}
 {{if .CurrentCommand.Usage}}
 {{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}
@@ -75,7 +77,8 @@ var GoCliStrings = i18n.Entries{
 	"Error":                         "Error: %s",
 	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
 	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
-	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
+	"UnknownElementTemplate":        `unknown {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"ExtraArgument":                 `unexpected argument {{.Extra}}`,
 	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
 	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
 	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type for {{.Element.Name}}`,
@@ -83,6 +86,11 @@ var GoCliStrings = i18n.Entries{
 	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
 	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
 	"InvalidTimeFormat":             `invalid timestamp string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidIPFormat":               `invalid IP string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidIntFormat":              `invalid int string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidHexFormat":              `invalid hex string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidBinaryFormat":           `invalid binary string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
+	"InvalidOctalFormat":            `invalid octal string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
 	"MissingRequiredFlag":           `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
 	"MissingRequiredArg":            `required {{.GetType}} {{.GetPlaceholder}} is missing `,
 	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,

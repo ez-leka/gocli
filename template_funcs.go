@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/go-wordwrap"
 	"github.com/olekukonko/ts"
+	"golang.org/x/exp/slices"
 )
 
 func tplTranslate(in string) string {
@@ -36,6 +37,19 @@ func tplTwoColumns(rows [][2]string) string {
 func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 	rows := [][2]string{}
 	var name string
+
+	// sort flags by level
+	slices.SortStableFunc(flags_args, func(a IFlagArg, b IFlagArg) bool {
+
+		fa, oka := a.(IFlag)
+		fb, okb := a.(IFlag)
+		if oka && okb {
+			return fa.GetLevel() < fb.GetLevel()
+		}
+		return false
+
+	})
+
 	for _, fa := range flags_args {
 		if f, ok := fa.(IFlag); ok {
 			if f.GetShort() != 0 {
@@ -65,7 +79,7 @@ func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 func tplCommandCategories(commands []*Command) []*CommandCategory {
 	categories := make([]*CommandCategory, 0)
 
-	misc_cat := CommandCategory{Name: templateManager.localizer.Sprintf("FormatMisCommandsCategory"), Order: 99, Commands: make([]*Command, 0)}
+	misc_cat := CommandCategory{Name: templateManager.localizer.Sprintf("FormatMisCommandsCategory"), Order: 99, commands: make([]*Command, 0)}
 	categories = append(categories, &misc_cat)
 
 	for _, cmd := range commands {
@@ -75,17 +89,17 @@ func tplCommandCategories(commands []*Command) []*CommandCategory {
 			for _, cat := range categories {
 				if cat.Name == cmd.Category.Name {
 					found = true
-					cat.Commands = append(cat.Commands, cmd)
+					cat.commands = append(cat.commands, cmd)
 					break
 				}
 			}
 			if !found {
 				categories = append(categories, cmd.Category)
-				cmd.Category.Commands = make([]*Command, 0)
-				cmd.Category.Commands = append(cmd.Category.Commands, cmd)
+				cmd.Category.commands = make([]*Command, 0)
+				cmd.Category.commands = append(cmd.Category.commands, cmd)
 			}
 		} else {
-			misc_cat.Commands = append(misc_cat.Commands, cmd)
+			misc_cat.commands = append(misc_cat.commands, cmd)
 		}
 	}
 	sort.Slice(categories, func(i, j int) bool {
@@ -93,7 +107,7 @@ func tplCommandCategories(commands []*Command) []*CommandCategory {
 	})
 
 	// clean up misc category
-	if len(misc_cat.Commands) == 0 {
+	if len(misc_cat.commands) == 0 {
 		// remove misc as there are no uncategorised commands
 		categories = categories[0 : len(categories)-1]
 	}

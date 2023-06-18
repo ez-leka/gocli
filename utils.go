@@ -7,7 +7,7 @@ import (
 	"github.com/ez-leka/gocli/i18n"
 )
 
-func MapIFlag(m map[string]IFlag) []IFlagArg {
+func mapIFlag(m map[string]IFlag) []IFlagArg {
 	uchecker := make(map[IFlag]bool)
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
@@ -18,12 +18,17 @@ func MapIFlag(m map[string]IFlag) []IFlagArg {
 	}
 	return ret
 }
-func MapIArg(m []IArg) []IFlagArg {
+func mapIArg(m []IArg) []IFlagArg {
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
 		ret = append(ret, f)
 	}
 	return ret
+}
+
+func mergeValidatables(g validationGroup) []IValidatable {
+
+	return append(append(append(g.RequiredFlags, g.OptionalFlags...), g.RequiredArgs...), g.OptionalArgs...)
 }
 
 // set value that works for flags and arguments
@@ -54,11 +59,12 @@ func setFlagArgValue(fa IFlagArg, value string) error {
 		is_flag = true
 	}
 
-	if is_flag && !fa.IsCumulative() && fa.IsSetByUser() {
+	cumulative := fa.IsCumulative()
+	if is_flag && !cumulative && fa.IsSetByUser() {
 		return i18n.NewError("FlagAlreadySet", fa)
 	}
 
-	if fa.IsCumulative() {
+	if cumulative {
 		t := reflect.TypeOf(dest).Elem().Elem()
 		new_value := reflect.New(t).Interface()
 		err := new_value.(ISetable).FromString(value, fa)
@@ -98,17 +104,22 @@ func getFlagArgValue(fa IFlagArg) interface{} {
 	}
 }
 
-func IsType[T TFlag | TArg](fa IFlagArg) bool {
+func isType[T TFlag | TArg](fa IFlagArg) bool {
 
 	_, ok := any(fa.getDestination()).(*T)
 	return ok
 }
 
-func IsCumulative(fa IFlagArg) bool {
+func isCumulative(fa IFlagArg) bool {
 	rt := reflect.TypeOf(fa.getDestination()).Elem()
 	switch rt.Kind() {
 	case reflect.Slice:
-		return true
+		if _, ok := reflect.New(rt.Elem()).Interface().(ISetable); ok {
+			return true
+		} else {
+			// thisis array of some primitive type - rnamed type
+			return false
+		}
 	default:
 		return false
 	}

@@ -1,11 +1,13 @@
 package gocli
 
 import (
+	"net"
 	"net/mail"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ez-leka/gocli/i18n"
@@ -29,10 +31,20 @@ type IValidatable interface {
 
 type String string
 type Bool bool
+type Int int
+type Hex int
+type Binary int
+type Octal int
 type OneOf string
 type Email string
 type TimeStamp time.Time
+type Duration time.Duration
+type IP net.IP
 type File String // Represents existing file path. Will not validate if file does not exist. Use String type if you do not want validate for existance
+
+type TArgFlag interface {
+	String | []String | OneOf | Email | []Email | File | []File | TimeStamp | []TimeStamp | Duration | []Duration | Int | []Int | Hex | []Hex | Octal | []Octal | Binary | []Binary | IP | []IP
+}
 
 func (s *String) GetReturnType() reflect.Type {
 	return reflect.TypeOf("")
@@ -169,9 +181,122 @@ func (s *TimeStamp) GetValue() interface{} {
 	return time.Time(*s)
 }
 
+func (s *Duration) GetReturnType() reflect.Type {
+	var d time.Duration
+	return reflect.TypeOf(d)
+}
+
+func (s *Duration) FromString(v string, fa IFlagArg) error {
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return err
+	}
+	*s = Duration(d)
+	return nil
+}
+
+func (s *Duration) GetValue() interface{} {
+	return time.Duration(*s)
+}
+
+func (s *IP) GetReturnType() reflect.Type {
+	return reflect.TypeOf(net.IP{})
+}
+
+func (s *IP) FromString(v string, fa IFlagArg) error {
+
+	ip := net.ParseIP(v)
+	if ip == nil {
+		return i18n.NewError("InvalidIPFormat", ElementTemplateContext{Element: fa, Extra: v})
+	}
+	*s = IP(ip)
+	return nil
+}
+
+func (s *IP) GetValue() interface{} {
+	return net.IP(*s)
+}
+
+func (s *Int) GetReturnType() reflect.Type {
+	var i int
+	return reflect.TypeOf(i)
+}
+
+func (s *Int) FromString(v string, fa IFlagArg) error {
+
+	i, err := strconv.ParseInt(v, 10, 0)
+	if err != nil {
+		return i18n.NewError("InvalidIntFormat", ElementTemplateContext{Element: fa, Extra: v})
+	}
+	*s = Int(i)
+	return nil
+}
+
+func (s *Int) GetValue() interface{} {
+	return int(*s)
+}
+
+func (s *Hex) GetReturnType() reflect.Type {
+	var i int
+	return reflect.TypeOf(i)
+}
+
+func (s *Hex) FromString(v string, fa IFlagArg) error {
+
+	// if string starts with 0x - remove it before parsing
+	v = strings.Replace(v, "0x", "", -1)
+	i, err := strconv.ParseInt(v, 16, 0)
+	if err != nil {
+		return i18n.NewError("InvalidHexFormat", ElementTemplateContext{Element: fa, Extra: v})
+	}
+	*s = Hex(i)
+	return nil
+}
+
+func (s *Hex) GetValue() interface{} {
+	return int(*s)
+}
+
+func (s *Binary) GetReturnType() reflect.Type {
+	var i int
+	return reflect.TypeOf(i)
+}
+
+func (s *Binary) FromString(v string, fa IFlagArg) error {
+
+	i, err := strconv.ParseInt(v, 2, 0)
+	if err != nil {
+		return i18n.NewError("InvalidBinaryFormat", ElementTemplateContext{Element: fa, Extra: v})
+	}
+	*s = Binary(i)
+	return nil
+}
+
+func (s *Binary) GetValue() interface{} {
+	return int(*s)
+}
+
+func (s *Octal) GetReturnType() reflect.Type {
+	var i int
+	return reflect.TypeOf(i)
+}
+
+func (s *Octal) FromString(v string, fa IFlagArg) error {
+
+	i, err := strconv.ParseInt(v, 8, 0)
+	if err != nil {
+		return i18n.NewError("InvalidOctalFormat", ElementTemplateContext{Element: fa, Extra: v})
+	}
+	*s = Octal(i)
+	return nil
+}
+
+func (s *Octal) GetValue() interface{} {
+	return int(*s)
+}
+
 type IFlagArg interface {
 	IValidatable
-	Compare(IFlagArg) int
 	GetUsage() string
 	GetDefault() string
 	GetHints() []string
@@ -189,22 +314,27 @@ type IFlagArg interface {
 type ICommand interface {
 	IValidatable
 	FullCommand() string
-	ActionWraper(*Application) error
-}
-
-type ValidationGroup struct {
-	Command       string
-	RequiredFlags []IFlag
-	OptionalFlags []IFlag
-	RequiredArgs  []IArg
-	OptionalArgs  []IArg
-}
-type GroupedFlagsArgs struct {
-	Ungrouped ValidationGroup
-	Groups    map[string]ValidationGroup
+	ActionWrapper(*Application, interface{}) (interface{}, error)
 }
 type CommandCategory struct {
 	Name     string
 	Order    int
-	Commands []*Command
+	commands []*Command
+}
+
+func (cat *CommandCategory) GetCommands() []*Command {
+	return cat.commands
+}
+
+// private types
+type validationGroup struct {
+	Command       string
+	RequiredFlags []IValidatable
+	OptionalFlags []IValidatable
+	RequiredArgs  []IValidatable
+	OptionalArgs  []IValidatable
+}
+type groupedFlagsArgs struct {
+	Ungrouped validationGroup
+	Groups    map[string]validationGroup
 }

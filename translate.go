@@ -19,6 +19,18 @@ func check_err(err error) {
 
 func main() {
 
+	if len(os.Args) != 2 {
+		fmt.Println(`
+You must specify language
+
+	Usage:
+		go run translate.go <language>
+
+	Example:
+		go run translate.go french
+	`)
+		os.Exit(1)
+	}
 	language := os.Args[1]
 	pkg := "translate"
 

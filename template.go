@@ -2,7 +2,6 @@ package gocli
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 	"strings"
 	"text/template"
@@ -15,16 +14,12 @@ var templateManager *TemplateManager
 
 type TemplateManager struct {
 	CustomFuncs template.FuncMap
-	localizer   i18n.Localizer
+	localizer   *i18n.Localizer
 }
 
 type TokenTemplateContext struct {
 	Name  string
 	Extra string
-}
-
-func (f TokenTemplateContext) GetType() string {
-	return "token"
 }
 
 type ElementTemplateContext struct {
@@ -38,68 +33,56 @@ type UsageTemplateContext struct {
 	Args           []IFlagArg
 }
 
-type testRenderer struct {
-	buf bytes.Buffer
-}
-
-func (f *testRenderer) Arg(i int) interface{} { return nil }
-func (f *testRenderer) Render(s string)       { f.buf.WriteString(s) }
-
 var (
 	indent  = 4
 	padding = 4
 )
 
-func NewTemplateManager(lang language.Tag) (*TemplateManager, error) {
+func initTemplateManager() {
 
-	tm := &TemplateManager{}
-
-	tm.CustomFuncs = template.FuncMap{
-		"Translate":             tplTranslate,
-		"Indent":                tplIndent,
-		"ToUpper":               strings.ToUpper,
-		"ToLower":               strings.ToLower,
-		"Rune":                  tplRune,
-		"IsFlag":                tplIsFlag,
-		"IsArg":                 tplIsArg,
-		"TwoColumns":            tplTwoColumns,
-		"FlagsArgsToTwoColumns": tplFlagsArgsToTwoColumns,
-		"CommandCategories":     tplCommandCategories,
-		"CommandsToTwoColumns":  tplCommandsToTwoColumns,
-		"FormatTemplate":        tplFormatTemplate,
+	default_lang := language.MustParse("en_us")
+	// tf := TemplateFuncs{}
+	templateManager = &TemplateManager{
+		CustomFuncs: template.FuncMap{
+			"Translate":             tplTranslate,
+			"Indent":                tplIndent,
+			"ToUpper":               strings.ToUpper,
+			"ToLower":               strings.ToLower,
+			"Rune":                  tplRune,
+			"IsFlag":                tplIsFlag,
+			"IsArg":                 tplIsArg,
+			"TwoColumns":            tplTwoColumns,
+			"FlagsArgsToTwoColumns": tplFlagsArgsToTwoColumns,
+			"CommandCategories":     tplCommandCategories,
+			"CommandsToTwoColumns":  tplCommandsToTwoColumns,
+			"FormatTemplate":        tplFormatTemplate,
+		},
+		localizer: i18n.NewLocalizer(default_lang, default_lang),
 	}
-	fallback_lang := language.MustParse("en_us")
-	tm.localizer = *i18n.NewLocalizer(lang, fallback_lang)
 
-	tm.localizer.AddUpdateTranslation(fallback_lang, GoCliStrings)
-
-	return tm, nil
+	templateManager.localizer.AddUpdateTranslation(default_lang, GoCliStrings)
 }
 
 func (t TemplateManager) AddTranslation(lang language.Tag, entries i18n.Entries) {
 	t.localizer.AddUpdateTranslation(lang, entries)
 }
+
+func (t TemplateManager) UpdateTranslation(lang language.Tag, key string, obj any) {
+	t.localizer.AddUpdateTranslation(lang, i18n.Entries{key: obj})
+}
+
 func (t TemplateManager) AddFunction(name string, function any) {
 	t.CustomFuncs[name] = function
 }
 
-// func (t TemplateManager) makeError(key string, obj interface{}) error {
-// 	buf := bytes.NewBuffer(nil)
-
-// 	template_str := t.GetMessage(key)
-// 	templ := template.Must(template.New("err").Funcs(t.CustomFuncs).Parse(template_str))
-// 	templ.Execute(buf, obj)
-// 	return errors.New(buf.String())
-// }
-
-func (t TemplateManager) GetMessage(key string, a ...interface{}) string {
+func (t TemplateManager) GetLocalizedString(key string, a ...interface{}) string {
 
 	s := t.localizer.Sprintf(key, a...)
 	return s
 }
 
 func (t TemplateManager) formatTemplate(writer io.Writer, tpl string, obj any) error {
-	tpl_content := t.GetMessage(tpl, obj)
+	tpl_content := t.GetLocalizedString(tpl, obj)
 	return t.doFormatTemplate(writer, tpl_content, obj, 0)
 }
 

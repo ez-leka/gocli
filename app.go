@@ -12,6 +12,10 @@ import (
 	"golang.org/x/text/language"
 )
 
+type Terminator func(status int)
+
+func NilTerminator(int) {}
+
 // An Application contains the definitions of flags, arguments and commands
 // for an application.
 type Application struct {
@@ -25,18 +29,16 @@ type Application struct {
 	MixArgsAndFlags       bool
 	Author                string
 	Version               string
+	Terminator            Terminator
 	errorWriter           io.Writer // Destination for errors.
 	usageWriter           io.Writer // Destination for usage
-	terminate             func(status int)
-	context               *ParseContext
-	language              language.Tag
+	context               *context
 	stopActionPropagation bool
 }
 
 // Creates a new gocli application.
-func New(lang string) *Application {
+func New() *Application {
 
-	var err error
 	app := &Application{
 		Command: Command{
 			Name:  filepath.Base(os.Args[0]),
@@ -45,25 +47,19 @@ func New(lang string) *Application {
 		MixArgsAndFlags: true, // default
 		usageWriter:     os.Stdout,
 		errorWriter:     os.Stderr,
-		terminate:       os.Exit,
-		context:         &ParseContext{},
+		Terminator:      os.Exit,
+		context:         &context{},
 	}
-
-	app.language = language.Make(lang)
-	templateManager, err = NewTemplateManager(app.language)
-	if err != nil {
-		panic(err)
-	}
-
+	initTemplateManager()
 	return app
 }
 
-func (a *Application) AddTemplateFunction(name string, f any) {
-	templateManager.AddFunction(name, f)
+func (a *Application) GetTemplateManager() *TemplateManager {
+	return templateManager
 }
 
-func (a *Application) AddTranslation(lang language.Tag, entries i18n.Entries) {
-	templateManager.AddTranslation(lang, entries)
+func (a Application) SetLanguage(tag language.Tag) {
+	templateManager.localizer.SetLanguage(tag)
 }
 
 func (a *Application) GetArgument(name string) (IArg, error) {
@@ -75,32 +71,6 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 	return a.context.arguments_lookup[idx], nil
 }
 
-func (a *Application) GetStringArg(name string) (string, error) {
-
-	// find argument by name
-	arg, err := a.GetArgument(name)
-	if err != nil {
-		return "", err
-	}
-	if arg.IsCumulative() {
-		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
-	}
-	return arg.GetValue().(string), nil
-}
-
-func (a *Application) GetListArg(name string) ([]string, error) {
-	// find argument by name
-	arg, err := a.GetArgument(name)
-	if err != nil {
-		return []string{}, err
-	}
-
-	if arg.IsCumulative() {
-		return arg.GetValue().([]string), nil
-	}
-	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: arg})
-}
-
 func (a *Application) GetFlag(name string) (IFlag, error) {
 	f, ok := a.context.flags_lookup[name]
 	if !ok {
@@ -110,49 +80,9 @@ func (a *Application) GetFlag(name string) (IFlag, error) {
 	return f, nil
 }
 
-func (a *Application) GetBoolFlag(name string) (bool, error) {
-
-	f, err := a.GetFlag(name)
-	if err != nil {
-		return false, err
-	}
-	if !f.IsBool() {
-		return false, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
-	}
-	return f.GetValue().(bool), nil
-}
-
-func (a *Application) GetStringFlag(name string) (string, error) {
-	f, err := a.GetFlag(name)
-	if err != nil {
-		return "", err
-	}
-	if f.IsBool() || f.IsCumulative() {
-		return "", i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
-	}
-
-	return f.GetValue().(string), nil
-}
-
-func (a *Application) GetListFlag(name string) ([]string, error) {
-	f, err := a.GetFlag(name)
-	if err != nil {
-		return []string{}, err
-	}
-	if f.IsCumulative() {
-		return f.GetValue().([]string), nil
-	}
-	return nil, i18n.NewError("WrongElementTypeTemplate", ElementTemplateContext{Element: f})
-
-}
-
-// Terminate specifies the termination handler. Defaults to os.Exit(status).
-// If nil is passed, a no-op function will be used.
-func (a *Application) Terminate(terminate func(int)) {
-	if terminate == nil {
-		terminate = func(int) {}
-	}
-	a.terminate = terminate
+// teminate application with exit status
+func (a *Application) Terminate(status int) {
+	a.Terminator(status)
 }
 
 // ErrorWriter sets the io.Writer to use for errors.
@@ -177,7 +107,7 @@ func (a *Application) Stop() {
 //   - executes appropriate command
 func (a *Application) Run(args []string) (err error) {
 
-	if err := a.Init(); err != nil {
+	if err := a.init(); err != nil {
 		return err
 	}
 
@@ -190,8 +120,13 @@ func (a *Application) Run(args []string) (err error) {
 	}
 
 	// if hel flag was set app will exit with succsess
-	a.checkHelpRequested()
+	if a.checkHelpRequested() {
+		return nil
+	}
 
+	if a.checkVersionRequested() {
+		return nil
+	}
 	// run custom validators and validate required flags and args
 	err = a.context.validate(a)
 	if err != nil {
@@ -209,16 +144,28 @@ func (a *Application) Run(args []string) (err error) {
 	return err
 }
 
-func (a *Application) checkHelpRequested() {
+func (a *Application) checkHelpRequested() bool {
 
-	need_help, err := a.GetBoolFlag(a.HelpFlag.GetName())
-	if err != nil {
-		a.printUsage(err)
-	}
-
-	if need_help {
+	if a.HelpFlag.GetValue().(bool) {
 		a.printUsage(nil)
+		return true
+	} else {
+		return false
 	}
+}
+
+func (a *Application) checkVersionRequested() bool {
+	if a.VersionFlag == nil {
+		return false
+	}
+
+	if a.VersionFlag.GetValue().(bool) {
+		fmt.Fprintln(a.usageWriter, a.Version)
+		return true
+	} else {
+		return false
+	}
+
 }
 
 func (a *Application) printError(err error) {
@@ -226,7 +173,7 @@ func (a *Application) printError(err error) {
 	if int_err, ok := err.(*i18n.Error); ok {
 		templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
 	} else {
-		templateManager.GetMessage("Error", err)
+		fmt.Fprintln(a.errorWriter, templateManager.GetLocalizedString("Error", err))
 	}
 }
 func (a *Application) printUsage(err error) {
@@ -235,10 +182,10 @@ func (a *Application) printUsage(err error) {
 	}
 
 	if err := a.FormatUsage(); err != nil {
-		fmt.Println(err.Error())
-		a.terminate(1)
+		fmt.Fprintln(a.errorWriter, err.Error())
+		a.Terminate(1)
 	}
-	a.terminate(0)
+	a.Terminate(0)
 }
 
 func (a *Application) FormatUsage() error {
@@ -246,47 +193,48 @@ func (a *Application) FormatUsage() error {
 	templateCtx := UsageTemplateContext{
 		AppName:        a.Name,
 		CurrentCommand: *a.context.CurrentCommand,
-		Flags:          MapIFlag(a.context.flags_lookup),
-		Args:           MapIArg(a.context.arguments_lookup),
+		Flags:          mapIFlag(a.context.flags_lookup),
+		Args:           mapIArg(a.context.arguments_lookup),
 	}
 	return templateManager.formatTemplate(a.usageWriter, "AppUsageTemplate", templateCtx)
 }
 
-func (a *Application) Init() error {
+func (a *Application) init() error {
 	if a.initialized {
 		return nil
 	}
 
 	// add help flag - it is always present
-	help_short, _ := utf8.DecodeRuneInString(templateManager.GetMessage("HelpFlagShort"))
+	help_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("HelpFlagShort"))
 	a.HelpFlag = &Flag[Bool]{
-		Name:  templateManager.GetMessage("HelpCommandAndFlagName"),
+		Name:  templateManager.GetLocalizedString("HelpCommandAndFlagName"),
 		Short: help_short,
-		Usage: templateManager.GetMessage("HelpFlagUsageTemplate"),
+		Usage: templateManager.GetLocalizedString("HelpFlagUsageTemplate"),
 	}
 	a.AddFlag(a.HelpFlag)
 
 	// If we have subcommands, add a help command at the top-level.
 	if a.ShowHelpCommand {
-		command_arg_name := templateManager.GetMessage("CommandArgName")
+		command_arg_name := templateManager.GetLocalizedString("CommandArgName")
 		help_cmd := &Command{
-			Name:  templateManager.GetMessage("HelpCommandAndFlagName"),
-			Usage: templateManager.GetMessage("HelpCommandUsage"),
+			Name:  templateManager.GetLocalizedString("HelpCommandAndFlagName"),
+			Usage: templateManager.GetLocalizedString("HelpCommandUsage"),
 			Args: []IArg{
 				&Arg[[]String]{
 					Name:  command_arg_name,
-					Usage: templateManager.GetMessage("HelpCommandArgUsage"),
+					Usage: templateManager.GetLocalizedString("HelpCommandArgUsage"),
 				},
 			},
 			Action: func(app *Application, c *Command, in_data interface{}) (interface{}, error) {
-				command, err := a.GetListArg(command_arg_name)
+				cmd_arg, err := a.GetArgument(command_arg_name)
+				command := cmd_arg.GetValue().([]string)
 				if err != nil {
 					a.printUsage(nil)
 				}
 				a.context.parse(a, command)
 
 				a.printUsage(nil)
-				a.terminate(0)
+				a.Terminate(0)
 				return nil, nil
 			},
 		}
@@ -295,17 +243,17 @@ func (a *Application) Init() error {
 	}
 	// add version flag is version value is set
 	if a.Version != "" {
-		version_short, _ := utf8.DecodeRuneInString(templateManager.GetMessage("VersionFlagShort"))
+		version_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("VersionFlagShort"))
 
 		a.VersionFlag = &Flag[Bool]{
-			Name:  templateManager.GetMessage("VersionFlagName"),
+			Name:  templateManager.GetLocalizedString("VersionFlagName"),
 			Short: version_short,
-			Usage: templateManager.GetMessage("VersionFlagUsageTemplate"),
+			Usage: templateManager.GetLocalizedString("VersionFlagUsageTemplate"),
 		}
 		a.AddFlag(a.VersionFlag)
 	}
 
-	a.init()
+	a.Command.init()
 
 	return nil
 }
