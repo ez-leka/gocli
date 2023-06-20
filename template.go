@@ -2,6 +2,7 @@ package gocli
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"strings"
 	"text/template"
@@ -81,7 +82,7 @@ func (t TemplateManager) GetLocalizedString(key string, a ...interface{}) string
 	return s
 }
 
-func (t TemplateManager) formatTemplate(writer io.Writer, tpl string, obj any) error {
+func (t TemplateManager) FormatTemplate(writer io.Writer, tpl string, obj any) error {
 	tpl_content := t.GetLocalizedString(tpl, obj)
 	return t.doFormatTemplate(writer, tpl_content, obj, 0)
 }
@@ -96,6 +97,15 @@ func (t TemplateManager) doFormatTemplate(writer io.Writer, tpl string, obj any,
 	if err != nil {
 		return err
 	}
+	// load all template defines we know about in case we using one
+	for i, sub_t_key := range t.localizer.TemplatesDefined {
+		sub_t := t.localizer.Sprintf(sub_t_key)
+		sub_t = strings.Trim(sub_t, "\t \n")
+		if _, err = templ.New(fmt.Sprint("_", i)).Parse(sub_t); err != nil {
+			return err
+		}
+	}
+
 	return templ.Execute(writer, obj)
 }
 

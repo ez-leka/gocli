@@ -7,7 +7,7 @@ import (
 	"github.com/ez-leka/gocli/i18n"
 )
 
-func mapIFlag(m map[string]IFlag) []IFlagArg {
+func flagsForUsage(m map[string]IFlag) []IFlagArg {
 	uchecker := make(map[IFlag]bool)
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
@@ -18,12 +18,35 @@ func mapIFlag(m map[string]IFlag) []IFlagArg {
 	}
 	return ret
 }
-func mapIArg(m []IArg) []IFlagArg {
+func argsForUsage(m []IArg) []IFlagArg {
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
 		ret = append(ret, f)
 	}
 	return ret
+}
+
+func flagSorter(a IFlagArg, b IFlagArg) bool {
+
+	fa, oka := a.(IFlag)
+	fb, okb := b.(IFlag)
+	if oka && okb {
+		return fa.GetLevel() < fb.GetLevel()
+	}
+	return false
+
+}
+
+func validatableSorter(a IValidatable, b IValidatable) bool {
+
+	fa, oka := a.(IFlag)
+	fb, okb := b.(IFlag)
+	if oka && okb {
+		res := (fa.GetLevel() < fb.GetLevel())
+		return res
+	}
+	return false
+
 }
 
 func mergeValidatables(g validationGroup) []IValidatable {

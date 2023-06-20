@@ -3,49 +3,55 @@ package gocli
 import "github.com/ez-leka/gocli/i18n"
 
 var GoCliStrings = i18n.Entries{
-	"AppUsageTemplate": `
+	"CmdFlagTemplate": `
 {{- define "CmdFlag"}}
-{{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{end -}}
-{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{end -}}
-{{- end -}}
-
-{{- define "CmdArg"}} <{{.GetPlaceholder}}>{{- end -}}
-
+{{- if not .IsHidden -}}
+{{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{- end}}
+{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{- end}}
+{{- end}}
+{{- end -}}`,
+	"CmdArgTemplate": `
+{{define "CmdArg"}}{{if not .IsHidden}}<{{.GetPlaceholder}}>{{end}}{{end}}
+`,
+	"CmdGroupTemplate": `
 {{- define "CmdGroup"}}
-{{- if .Command}} <{{Translate .Command}}>{{end -}}
-{{- range .RequiredFlags}}{{template "CmdFlag" .}}{{end -}}
-{{- if .OptionalFlags}} [{{end -}}
-{{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}	
-{{- if .OptionalFlags}} ]{{end -}}
-{{- range .RequiredArgs}}
-{{- template "CmdArg" .}}
-{{- end -}}
-{{- if .OptionalArgs}} [{{end -}}
-{{- range .OptionalArgs}}
-{{- template "CmdArg" .}}
-{{- end -}}	
-{{- if .OptionalArgs}} ]{{end -}}
-{{- end -}}
-
-{{define "FormatCommandCategory"}}
-{{range .}}
+{{- if .Command}} {{if .IsGenericCommand}}<{{end}}{{Translate .Command}} {{if .IsGenericCommand}}>{{end}}{{- end}}
+{{- range .RequiredFlags}}{{template "CmdFlag" .}}{{- end}}
+{{- if .OptionalFlags}} [{{end -}}{{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}{{- if .OptionalFlags}} ]{{- end}}
+{{- range .RequiredArgs}}{{template "CmdArg" .}}{{- end}}
+{{- if .OptionalArgs}} [{{end -}}{{- range .OptionalArgs}}{{template "CmdArg" .}}{{- end}}{{- if .OptionalArgs}} ]{{end}}
+{{- end -}}`,
+	"FormatCommandCategoryTemplate": `
+{{- define "FormatCommandCategory"}}
+{{- if .}}
+{{- range .|CommandCategories}}
 {{.Name}}
 {{.GetCommands|CommandsToTwoColumns|TwoColumns}}
-{{end}}
-{{end}}
-
-{{FormatTemplate .CurrentCommand.Description .CurrentCommand 4}}
-{{if .CurrentCommand.Commands}}
-  {{template "FormatCommandCategory" .CurrentCommand.Commands|CommandCategories}}
-{{end}}
-{{if .Flags -}}
+{{- end}}
+{{- end}}
+{{- end -}}`,
+	"FlagListTemplate": `
+{{- define "FlagList"}}
+{{- if .}}
 {{Translate "Flags"}}:
-{{.Flags|FlagsArgsToTwoColumns|TwoColumns}}
-{{end -}}
-{{if .Args -}}
+{{.|FlagsArgsToTwoColumns|TwoColumns}}
+{{- end}}
+{{- end -}}`,
+	"ArgListTemplate": `
+{{- define "ArgList"}}
+{{- if .}}
 {{Translate "Arguments"}}:
-{{.Args|FlagsArgsToTwoColumns|TwoColumns}}
-{{end -}}
+{{.|FlagsArgsToTwoColumns|TwoColumns}}
+{{- end -}}	
+{{- end -}}
+`,
+	"AppUsageTemplate": `
+{{- if .CurrentCommand.Description}}
+{{FormatTemplate .CurrentCommand.Description .CurrentCommand 4}}
+{{end}}
+{{- template "FormatCommandCategory" .CurrentCommand.Commands}}
+{{- template "FlagList" .Flags}}
+{{- template "ArgList" .Args}}
 {{Translate "Usage"}}: 
 {{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
 {{- $group_idx := 0}}
@@ -59,6 +65,7 @@ var GoCliStrings = i18n.Entries{
   {{- template "CmdGroup" .}}{{- $group_idx = 1}}
   {{- end -}}
   {{- if gt (len $groups.Groups) 1}} ){{end}}
+
 {{if .CurrentCommand.Usage}}
 {{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}

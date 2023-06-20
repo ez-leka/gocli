@@ -3,6 +3,8 @@ package gocli
 import (
 	"reflect"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 type Action func(*Application, *Command, interface{}) (interface{}, error)
@@ -21,6 +23,7 @@ type Command struct {
 	Validator        CommandValidator
 	ValidationGroups []string
 	Optional         bool
+	Hidden           bool // can be used on command line but will not show on help
 	initialized      bool
 	commands_map     map[string]*Command
 	parent           *Command
@@ -47,6 +50,10 @@ func (c *Command) GetPlaceholder() string {
 
 func (c *Command) GetType() string {
 	return "command"
+}
+
+func (c *Command) IsHidden() bool {
+	return c.Hidden
 }
 
 func (c *Command) IsRequired() bool {
@@ -149,6 +156,7 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 	for _, subc := range sub_cmds {
 		if len(subc.GetValidationGroups()) == 0 {
 			grouped.Ungrouped.Command = "command"
+			grouped.Ungrouped.IsGenericCommand = true
 			continue
 		}
 		for _, gname := range subc.GetValidationGroups() {
@@ -181,6 +189,14 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 			}
 		}
 	}
+
+	// finally sort all flags by level
+	for _, g := range grouped.Groups {
+		slices.SortFunc(g.RequiredFlags, validatableSorter)
+		slices.SortFunc(g.OptionalFlags, validatableSorter)
+	}
+	slices.SortFunc(grouped.Ungrouped.RequiredFlags, validatableSorter)
+	slices.SortFunc(grouped.Ungrouped.OptionalFlags, validatableSorter)
 	return grouped
 }
 
@@ -235,8 +251,16 @@ func (c *Command) AddFlag(flag IFlag) {
 	c.Flags = append(c.Flags, flag)
 }
 
+func (c *Command) AddFlags(flags []IFlag) {
+	c.Flags = append(c.Flags, flags...)
+}
+
 func (c *Command) AddArg(arg IArg) {
 	c.Args = append(c.Args, arg)
+}
+
+func (c *Command) AddArgs(args []IArg) {
+	c.Args = append(c.Args, args...)
 }
 
 func (c *Command) AddCommand(cmd Command) {

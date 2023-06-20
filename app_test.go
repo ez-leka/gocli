@@ -166,6 +166,40 @@ func TestApplication_Run(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "flag sorting",
+			setup: func() *Application {
+				app := New()
+				app.Description = `{{.Name}} is a test program for gocli`
+				app.AddFlag(&Flag[Bool]{
+					Name: "appf1",
+				})
+				app.AddFlag(&Flag[Bool]{
+					Name: "appf2",
+				})
+				app.AddCommand(Command{
+					Name:        "command1",
+					Description: `{{.FullCommand}} first command`,
+					Flags: []IFlag{
+						&Flag[Bool]{
+							Name: "cmdf1",
+						},
+						&Flag[Bool]{
+							Name: "cmdf2",
+						},
+					},
+				})
+				app.AddCommand(Command{
+					Name:        "command2",
+					Description: `{{.FullCommand}} second command`,
+				})
+				app.Terminator = NilTerminator
+				return app
+			},
+			args:    []string{"test", "command1", "-h"},
+			wantErr: false,
+		},
+
+		{
 			// testing parsing of and validation of :
 			// email,
 			// shot flags compressed together,
