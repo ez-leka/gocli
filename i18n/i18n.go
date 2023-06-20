@@ -1,7 +1,6 @@
 package i18n
 
 import (
-	"bytes"
 	"io"
 
 	"golang.org/x/text/language"
@@ -33,14 +32,6 @@ func NewError(key string, obj any) *Error {
 	return &Error{key: key, obj: obj}
 }
 
-type LookupRenderer struct {
-	buf bytes.Buffer
-}
-
-func (r *LookupRenderer) Arg(i int) interface{} { return nil }
-func (r *LookupRenderer) Render(s string)       { r.buf.WriteString(s) }
-func (r *LookupRenderer) String() string        { return r.buf.String() }
-
 type Localizer struct {
 	fallback        language.Tag
 	fallbackEntries Entries
@@ -62,6 +53,11 @@ func NewLocalizer(lang language.Tag, fallback language.Tag) *Localizer {
 	return localizer
 }
 
+func (l *Localizer) SetLanguage(tag language.Tag) {
+	l.Printer = message.NewPrinter(tag, message.Catalog(l.builder))
+
+}
+
 func (l *Localizer) addMessage(tag language.Tag, key string, msg interface{}) {
 	switch typed_msg := msg.(type) {
 	case string:
@@ -73,10 +69,9 @@ func (l *Localizer) addMessage(tag language.Tag, key string, msg interface{}) {
 	}
 }
 
-func (l *Localizer) loadEntries(entries map[string]Entries) {
+func (l *Localizer) loadEntries(entries map[language.Tag]Entries) {
 
-	for lang, msgs := range entries {
-		tag := language.MustParse(lang)
+	for tag, msgs := range entries {
 		for key, original_mgs := range l.fallbackEntries {
 			var msg interface{}
 			if translated, ok := msgs[key]; ok {
@@ -101,7 +96,6 @@ func (l *Localizer) loadEntries(entries map[string]Entries) {
 
 func (l *Localizer) AddUpdateTranslation(lang language.Tag, entries Entries) {
 
-	var dict map[string]Entries
 	if lang == l.fallback && l.fallbackEntries == nil {
 		l.fallbackEntries = entries
 	} else if lang == l.fallback {
@@ -111,8 +105,8 @@ func (l *Localizer) AddUpdateTranslation(lang language.Tag, entries Entries) {
 		}
 	}
 
-	dict = map[string]Entries{
-		lang.String(): entries,
+	dict := map[language.Tag]Entries{
+		lang: entries,
 	}
 	l.loadEntries(dict)
 

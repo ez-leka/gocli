@@ -3,7 +3,7 @@ package gocli
 type FlagValidator func(a *Application, f IFlag) error
 
 type TFlag interface {
-	String | []String | Bool | OneOf | Email | []Email | File | []File | TimeStamp | []TimeStamp
+	TArgFlag | Bool
 }
 
 type IFlag interface {
@@ -11,6 +11,8 @@ type IFlag interface {
 	IsBool() bool
 	SetShort(c rune)
 	GetShort() rune
+	SetLevel(int)
+	GetLevel() int
 }
 
 type Flag[T TFlag] struct {
@@ -22,20 +24,22 @@ type Flag[T TFlag] struct {
 	Destination      *T
 	Required         bool
 	Placeholder      string
-	isSetByUser      bool
 	ValidationGroups []string
 	Validator        FlagValidator
+	// for internal use
+	isSetByUser bool
+	level       int
 }
 
 func (f *Flag[T]) GetType() string {
 	return "flag"
 }
 
-func (f *Flag[T]) Compare(ff IFlagArg) int {
-	if f == ff {
-		return 0
-	}
-	return 1
+func (f *Flag[T]) SetLevel(level int) {
+	f.level = level
+}
+func (f *Flag[T]) GetLevel() int {
+	return f.level
 }
 
 func (f *Flag[T]) IsBool() bool {
@@ -88,7 +92,7 @@ func (f *Flag[T]) IsSetByUser() bool {
 }
 
 func (f *Flag[T]) IsCumulative() bool {
-	return IsCumulative(f)
+	return isCumulative(f)
 }
 
 func (f *Flag[T]) SetByUser() {

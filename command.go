@@ -1,6 +1,7 @@
 package gocli
 
 import (
+	"reflect"
 	"strings"
 )
 
@@ -24,6 +25,7 @@ type Command struct {
 	commands_map     map[string]*Command
 	parent           *Command
 	setByUser        bool
+	validatables     map[string]IValidatable
 }
 
 func (c Command) FullCommand() string {
@@ -51,42 +53,40 @@ func (c *Command) IsRequired() bool {
 	return true // if command was parced it was required
 }
 
-// all required flags will be first  followed by all optional flags
-func (c Command) GetGlobalFlags() ValidationGroup {
-	global := ValidationGroup{
-		RequiredFlags: make([]IFlag, 0),
-		OptionalFlags: make([]IFlag, 0),
-		RequiredArgs:  make([]IArg, 0),
-		OptionalArgs:  make([]IArg, 0),
-	}
-	for p := c.parent; p != nil; p = p.parent {
-		for _, f := range p.Flags {
-			if f.IsRequired() {
-				global.RequiredFlags = append(global.RequiredFlags, f)
-			} else {
-				global.OptionalFlags = append(global.OptionalFlags, f)
-			}
-		}
-	}
-	return global
-
-}
-
 // all required flags will be first  followed by all optional flags in every group
 // followed by all required args followed by all optional args
-func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
+func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 
-	grouped := GroupedFlagsArgs{
-		Ungrouped: ValidationGroup{
-			RequiredFlags: make([]IFlag, 0),
-			OptionalFlags: make([]IFlag, 0),
-			RequiredArgs:  make([]IArg, 0),
-			OptionalArgs:  make([]IArg, 0),
+	grouped := groupedFlagsArgs{
+		Ungrouped: validationGroup{
+			RequiredFlags: make([]IValidatable, 0),
+			OptionalFlags: make([]IValidatable, 0),
+			RequiredArgs:  make([]IValidatable, 0),
+			OptionalArgs:  make([]IValidatable, 0),
 		},
-		Groups: make(map[string]ValidationGroup, 0),
+		Groups: make(map[string]validationGroup, 0),
 	}
 
-	for _, fa := range c.Flags {
+	flags := make([]IFlag, 0)
+	args := make([]IArg, 0)
+	sub_cmds := make([]ICommand, 0)
+	for _, v := range c.validatables {
+		if f, ok := v.(IFlag); ok {
+			flags = append(flags, f)
+			continue
+		}
+		if a, ok := v.(IArg); ok {
+			args = append(args, a)
+			continue
+		}
+		if sc, ok := v.(ICommand); ok {
+			sub_cmds = append(sub_cmds, sc)
+			continue
+		}
+
+	}
+
+	for _, fa := range flags {
 		if len(fa.GetValidationGroups()) == 0 {
 			if fa.IsRequired() {
 				grouped.Ungrouped.RequiredFlags = append(grouped.Ungrouped.RequiredFlags, fa)
@@ -96,14 +96,14 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 			continue
 		}
 		for _, gname := range fa.GetValidationGroups() {
-			var g ValidationGroup
+			var g validationGroup
 			ok := false
 			if g, ok = grouped.Groups[gname]; !ok {
-				g = ValidationGroup{
-					RequiredFlags: make([]IFlag, 0),
-					OptionalFlags: make([]IFlag, 0),
-					RequiredArgs:  make([]IArg, 0),
-					OptionalArgs:  make([]IArg, 0),
+				g = validationGroup{
+					RequiredFlags: make([]IValidatable, 0),
+					OptionalFlags: make([]IValidatable, 0),
+					RequiredArgs:  make([]IValidatable, 0),
+					OptionalArgs:  make([]IValidatable, 0),
 				}
 			}
 			if fa.IsRequired() {
@@ -115,7 +115,7 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 		}
 	}
 
-	for _, fa := range c.Args {
+	for _, fa := range args {
 		if len(fa.GetValidationGroups()) == 0 {
 			if fa.IsRequired() {
 				grouped.Ungrouped.RequiredArgs = append(grouped.Ungrouped.RequiredArgs, fa)
@@ -125,14 +125,14 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 			continue
 		}
 		for _, gname := range fa.GetValidationGroups() {
-			var g ValidationGroup
+			var g validationGroup
 			ok := false
 			if g, ok = grouped.Groups[gname]; !ok {
-				g = ValidationGroup{
-					RequiredFlags: make([]IFlag, 0),
-					OptionalFlags: make([]IFlag, 0),
-					RequiredArgs:  make([]IArg, 0),
-					OptionalArgs:  make([]IArg, 0),
+				g = validationGroup{
+					RequiredFlags: make([]IValidatable, 0),
+					OptionalFlags: make([]IValidatable, 0),
+					RequiredArgs:  make([]IValidatable, 0),
+					OptionalArgs:  make([]IValidatable, 0),
 				}
 
 			}
@@ -146,30 +146,41 @@ func (c Command) GetGroupedFlagsAndArgs() GroupedFlagsArgs {
 		}
 	}
 
-	for _, subc := range c.Commands {
+	for _, subc := range sub_cmds {
 		if len(subc.GetValidationGroups()) == 0 {
 			grouped.Ungrouped.Command = "command"
 			continue
 		}
 		for _, gname := range subc.GetValidationGroups() {
-			var g ValidationGroup
+			var g validationGroup
 			ok := false
 			if g, ok = grouped.Groups[gname]; !ok {
-				g = ValidationGroup{
-					Command:       subc.Name,
-					RequiredFlags: make([]IFlag, 0),
-					OptionalFlags: make([]IFlag, 0),
-					RequiredArgs:  make([]IArg, 0),
-					OptionalArgs:  make([]IArg, 0),
+				g = validationGroup{
+					Command:       subc.GetName(),
+					RequiredFlags: make([]IValidatable, 0),
+					OptionalFlags: make([]IValidatable, 0),
+					RequiredArgs:  make([]IValidatable, 0),
+					OptionalArgs:  make([]IValidatable, 0),
 				}
 
 			}
-			g.Command = subc.Name
+			g.Command = subc.GetName()
 			grouped.Groups[gname] = g
 
 		}
 	}
 
+	// remove duplicates in groups
+	for gname, g := range grouped.Groups {
+		for gname1, g1 := range grouped.Groups {
+			if gname1 == gname {
+				continue
+			}
+			if reflect.DeepEqual(g, g1) {
+				delete(grouped.Groups, gname1)
+			}
+		}
+	}
 	return grouped
 }
 

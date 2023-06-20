@@ -7,7 +7,7 @@ type IArg interface {
 }
 
 type TArg interface {
-	String | []String | Bool | OneOf | []OneOf | Email | []Email | File | []File | TimeStamp | []TimeStamp
+	TArgFlag
 }
 
 type ArgValidator func(a *Application, arg IArg) error
@@ -29,18 +29,8 @@ func (a *Arg[T]) GetType() string {
 	return "argument"
 }
 
-func (a *Arg[T]) Compare(aa IFlagArg) int {
-	if a == aa {
-		return 0
-	}
-	return 1
-}
-
 func (a *Arg[T]) GetName() string {
 	return a.Name
-}
-func (a *Arg[T]) GetShort() rune {
-	return 0
 }
 
 func (a *Arg[T]) GetUsage() string {
@@ -58,7 +48,7 @@ func (a *Arg[T]) IsSetByUser() bool {
 }
 
 func (a *Arg[T]) IsCumulative() bool {
-	return IsCumulative(a)
+	return isCumulative(a)
 }
 
 func (a *Arg[T]) GetDefault() string {

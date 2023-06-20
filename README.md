@@ -9,7 +9,7 @@
   - [Actions](#actions)
   - [Templates And Localization](#templates-and-localization)
 ## Overview
-gocli is a fully customizable and localizable CLI parser/processor that suports nested commands, positioned arguments, short and long flags and command grouping
+gocli is a fully customizable and localizable CLI parser/processor that suports nested commands, positioned arguments, short and long flags, either/or flags and arguments,  and command categories
 
 To install
 ```
@@ -19,7 +19,7 @@ go get https://github.com/ez-leka/gocli
 To use 
 
 ```go
-    app := gocli.New("en_us")
+    app := gocli.New()
     app.Description = `{{.Name}} is a test program for gocli`
 
     app.AddCommand(gocli.Command{
@@ -53,11 +53,11 @@ To use
 
     err = app.Run(os.Args)
 ```
-More examples can be found in cmd/main.go 
+Examples showing every feature can be found in app_test.go
 ## Features
 
 - Generated help output and error reporting that can be fully [customized and localized](#templates-and-localization)
-- Type-safe flags and arguments
+- Type-safe flags and arguments with pre-validation
 - Support for required flags and required positional arguments 
 - Support for nested commands
 - flags and arguments can be grouped for either/or validation
@@ -71,7 +71,9 @@ More examples can be found in cmd/main.go
 ### Commands
 Commands can be grouped into categories for help printout. If some commands do have category and some do not, those without a category will appper in the list as "Miscellanuious Commands" (this can be changed by changing corresponding template - see Templates). If no command has category, all commands will be listed alphabetically under "Commands" (this can be changed by changing corresponding template - see Templates)
 
-Commands can have  positined arguments and non-optional subcommands.
+Commands can have  positined arguments,  non-optional subcommands and optional subcommands
+
+Non-optional subcommands cannot be combines with arguments
 
 If command needs to have either positined argument or sub-command, subcommand MUST have Optional:true and a Validation group. All agruments of parent command(s) that are still relevant to this subcommand must have this validation group listed in their own ValidationGroups. Arguments specified as part of  the subcommand definition do not require validation group to be set and will be added after all relevant arguments of parent command(s)
 
@@ -160,8 +162,12 @@ Flags and argumens can be a single value or cumulative, alowing for multiple val
 
 #### Single Value Types
 
-- String (`Flag[String]{}`) - regular string without any additional validation. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
-- Bool (`Flag[Bool]{}`) - boolean flag (is not applicable to Arguments). The value can be retrived by `app.GetBoolFlag(<flag name>)`
+- String (`Flag[String]{}`) - regular string without any additional validation. The value can be retrieved using `app.GetArg(<argument name>).GetValue().(string)` or `app.GetFlag(<flag name>).GetValue().(string)`
+- Bool (`Flag[Bool]{}`) - boolean flag (is not applicable to Arguments). The value can be retrived by `app.GetFlag(<flag name>).(bool)`
+- Int (`Flag[Int]{}`) - int flag  The value can be retrived by `app.GetFlag(<flag name>).(int)`
+- Hex (`Flag[Hex]{}`) - int flag  The value can be retrived by `app.GetFlag(<flag name>).(int)` . 
+- Binary (`Flag[Binary]{}`) - int flag  The value can be retrived by `app.GetFlag(<flag name>).(int)`
+- Octal (`Flag[Octal]{}`) - int flag  The value can be retrived by `app.GetFlag(<flag name>).(int)`
 - OneOf  (`Flag[OneOf]{}`) - restricted string aflag or argument. Such flag orargument MUST have Hists array specifying set of possible values. For example:
 ```go
 		Flags: []gocli.IFlag{
@@ -181,12 +187,15 @@ Flags and argumens can be a single value or cumulative, alowing for multiple val
 				Hints:            []string{"node(s)", "function(s)", "user(s)"},
 				ValidationGroups: []string{"resourse"},
 			},
+        }
 
 ```
-- Email  (`Flag[Email]{}`) - value of the flag or argument of this type must validate as a valid email. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
-- File (`Flag[File]{}`) - value of the flag or argument of this type must validate as existing file path to a file or directory. If path contains wildcard, validation will make sure thatat least one match exist. The value can be retrieved using `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
+- Email  (`Flag[Email]{}`) - value of the flag or argument of this type must validate as a valid email. The value can be retrieved using `app.GetArg(<argument name>).GetValue().(string)` or `app.GetFlag(<flag name>).GetValue().(string)`
+- File (`Flag[File]{}`) - value of the flag or argument of this type must validate as existing file path to a file or directory. If path contains wildcard, validation will make sure thatat least one match exist. The value can be retrieved using `app.GetArg(<argument name>).GetValue().(string)` or `app.GetFlag(<flag name>).GetValue().(string)`
+- TimeStamp (`Flag[Timestamp]{}`) - time.Time value. To retrieve the value use `app.GetArg(<argument name>).GetValue().(time.Time)` or `app.GetFlag(<flag name>).GetValue().(time.Time)`
+- Duration (`Flag[Duration]{}`) - time.Duration value. To retrieve the value use `app.GetArg(<argument name>).GetValue().(time.Time)` or `app.GetFlag(<flag name>).GetValue().(time.Time)`
+- IP (`Flag[IP]{}`) - time.Duration value. To retrieve the value use `app.GetArg(<argument name>).GetValue().(net.IP)` or `app.GetFlag(<flag name>).GetValue().(net.IP)`
 
-To retrieve the value use `app.GetStringArg(<argument name>)` or `app.GetStringFlag(<flag name>)`
 
 On command line long name flags appear as `--boolflag`, `--logflag <value>` or `--longflag=<value>`, short flags are optional version of a given long flag and can appear on command line as 
 `-f test.txt`, `-ftest.txt`, or `-f=test.txt`. Short flags can be combined together and all but last of combined flags MUST be boolean. Last flag in combination can be a regular flag of any type: 
@@ -196,14 +205,13 @@ On command line long name flags appear as `--boolflag`, `--logflag <value>` or `
 
 All non-booles types can be cumulative and are sopecified as slice of the desired undelying type. For example, cumulative file flag -f  can be specified as `Flag[[]File]{}` and cumulative string argument asn  (`Arg[[]String]{}`)
 
-To retrieve value of cumulative flags and arguments, use `app.GetListArg(<argument name>)` or `app.GetListFlag(<flag name>)`
+To retrieve value of cumulative flags and arguments, use `app.GetArg(<argument name>).GetValue().([]<underlying type>)` or `app.GetFlag(<flag name>).GetValue().([]<underlying type>])`
 
 Cumulative flag can appear on the command line multiple times, for example, `test -f file1 -f file2`.
 
 Since arguments are positined, to pass multiple values to an argument, use comma separated list. For example, `test user1,user2`
-To retrieve value, use `app.GetListArg(<argument name>)` or `app.GetListFlag(<flag name>)`
 
-If argument is cumulative and is a last positined argument, all remaining values from command line will be consumed by this argument. Considerind example of the [command](#command), update command line may look like:
+If argument is cumulative and is a last positined argument, all remaining values from command line will be consumed by this argument. Consider an  example of the [command](#command), update command line may look like:
 ```
 update user user1,user2 <----- using comma separated values for cumulative argument resource-name
 update user user1 user2 <----- consuming the rest of the arguments
@@ -304,55 +312,35 @@ Default language ot the library is en_us.
 
 If you want to customize an entry withing en_us localization or translate strings to another language:
 
-	app.AddTranslation("en_us", i18n.Entries{
-        "VersionFlagUsageTemplate": "show git SHA", // original value was `show version`
-	})
+```go
+	app.GetTemplateManager().UpdateTranslation("en_us", "VersionFlagUsageTemplate", "show git SHA")
+```
+To translate and run application in another language
 
-	app.AddTranslation("ru", i18n.Entries{
-		"HelpCommandAndFlagName": "Помощь",
-		"Flags":                  "Флаги",
-		"Arguments":              "Аргументы",
-		"Usage":                  "Использование",
-        "HelpFlagUsageTemplate": "распечатать информацию о флагах",
-	})
+```go
+ru_tag := language.MustParse("ru")                                      <---------- define language 
+app.GetTemplateManager().AddTranslation(ru_tag, i18n.Entries{           <---------- add translation 
+    "HelpCommandAndFlagName": "Помощь",
+    "Flags":                  "Флаги",
+    "Arguments":              "Аргументы",
+    "Usage":                  "Использование",
+    "HelpFlagUsageTemplate":  "распечатать информацию о флагах",
+})
+app.SetLanguage(ru_tag)                                                 <--------- set application laguage 
+```
 
-To generate full set of translatable entries, add teh following directive to one of your main.go 
+All strings that do not have a translation to application language will fall back to "en_us" 
+
+To generate full set of translatable entries, add the following directive your main.go 
 ```go 
-//go:generate go run translate.go <language>
+//go:generate go run $GOPATH/pkg/mod/github.com/ez-leka/gocli@<version>/translate.go ru <language>
 ```
 
-the file <language>-strings.go will be genetated in the directory translations
-
+and run 
+```shell
+go generate 
 ```
-    AppUsageTemplate = <actual app usage template>
-	HelpCommandUsageTemplate    = `show help`
-	HelpCommandArgUsageTemplate = `show help for <command>`
-	VersionFlagUsageTemplate    = `show version`
-	HelpFlagUsageTemplate       = `Show context-sensitive help`
+the file `<language>.go` will be genetated in the sub-directory `translations`
 
-	"Error":                         "Error: %s",
-	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
-	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
-	"UnknownElementTemplate":        `unknown {{.GetType}} {{.GetPlaceholder}}`,
-	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,
-	"UnexpectedTokenTemplate":       `expected {{.Extra}} but got {{.Name}}`,
-	"WrongElementTypeTemplate":      `wrong {{.Element.GetType}} type`,
-	"FlagAlreadySet":                `flag {{.GetName}} already have been set. This flag is not cumulative and can only appear once on command line`,
-	"NoHintsForOneOf":               `no hints speciffied for {{.GetType}} {{.GetName}}`,
-	"UnknownOneOfValue":             `unsupported value {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
-	"InvalidTimeFormat":             `invalid timestamp string {{.Extra}} for {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
-	"MissingRequiredFlag":           `required {{.GetType}} --{{.Name}}{{if .Short}}(-{{.Short|Rune}}){{end}} is missing `,
-	"MissingRequiredArg":            `required {{.GetType}} {{.GetPlaceholder}} is missing `,
-	"FlagsArgsFromMultipleGroups":   `either {{.Name}} or {{.Extra}} can be specified, but not both`,
-	"NoUniqueFlagArgCommandInGroup": `must specify flag, argument or command. Try --help`,
-	"FlagValidationFailed":          `Invalid flag value {{.Extra}} for flag --{{.Element.Name}}{{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}})`,
-	"CommandRequired":               `Command required. Try --help`,
-	"FormatCommandsCategory":        "Commands",
-	"FormatMisCommandsCategory":     "Miscellaneous Commands",
-	"FormatFlagWithShort":           "-%c, --%s",
-	"FormatFlagNoShort":             "--%s",
-	"FormatFlagShort":               "-%c",
-	"FormatArg":                     "%s",
-```
-Description and Usage values for commands, flags and arguments can be a go tamplate and can only refer to its own object. 
+Note: Description and Usage values for commands, flags and arguments can be a go template and can only refer to its own object. 
 
