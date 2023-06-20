@@ -71,6 +71,25 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 	return a.context.arguments_lookup[idx], nil
 }
 
+func (a *Application) GetArgumentValue(name string) (interface{}, error) {
+	arg, err := a.GetArgument(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return arg.GetValue(), nil
+}
+
+func (a *Application) GetFlagValue(name string) (interface{}, error) {
+	f, err := a.GetFlag(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return f.GetValue(), nil
+}
 func (a *Application) GetFlag(name string) (IFlag, error) {
 	f, ok := a.context.flags_lookup[name]
 	if !ok {
