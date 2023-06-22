@@ -26,6 +26,7 @@ type Flag[T TFlag] struct {
 	Placeholder      string
 	ValidationGroups []string
 	Validator        FlagValidator
+	Hidden           bool // can be used on command line but will not show on help
 	// for internal use
 	isSetByUser bool
 	level       int
@@ -40,6 +41,10 @@ func (f *Flag[T]) SetLevel(level int) {
 }
 func (f *Flag[T]) GetLevel() int {
 	return f.level
+}
+
+func (f *Flag[T]) IsHidden() bool {
+	return f.Hidden
 }
 
 func (f *Flag[T]) IsBool() bool {

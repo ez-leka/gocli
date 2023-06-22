@@ -27,6 +27,7 @@ type IValidatable interface {
 	IsRequired() bool
 	ValidateWrapper(a *Application) error
 	GetPlaceholder() string
+	IsHidden() bool
 }
 
 type String string
@@ -328,11 +329,12 @@ func (cat *CommandCategory) GetCommands() []*Command {
 
 // private types
 type validationGroup struct {
-	Command       string
-	RequiredFlags []IValidatable
-	OptionalFlags []IValidatable
-	RequiredArgs  []IValidatable
-	OptionalArgs  []IValidatable
+	Command          string
+	IsGenericCommand bool
+	RequiredFlags    []IValidatable
+	OptionalFlags    []IValidatable
+	RequiredArgs     []IValidatable
+	OptionalArgs     []IValidatable
 }
 type groupedFlagsArgs struct {
 	Ungrouped validationGroup

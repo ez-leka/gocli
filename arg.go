@@ -20,6 +20,7 @@ type Arg[T TArg] struct {
 	Placeholder      string
 	Required         bool
 	Destination      *T
+	Hidden           bool // can be used on command line but will not show on help
 	isSetByUser      bool
 	ValidationGroups []string
 	Validator        ArgValidator
@@ -41,6 +42,9 @@ func (a *Arg[T]) GetHints() []string {
 }
 func (a *Arg[T]) IsRequired() bool {
 	return a.Required
+}
+func (a *Arg[T]) IsHidden() bool{
+	return a.Hidden
 }
 
 func (a *Arg[T]) IsSetByUser() bool {

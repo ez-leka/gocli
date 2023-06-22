@@ -65,11 +65,15 @@ func (ctx *context) mergeFlags(flags []IFlag) error {
 		if _, ok := ctx.flags_lookup[flag.GetName()]; ok {
 			return i18n.NewError("FlagLongExistsTemplate", flag)
 		}
-		if _, ok := ctx.flags_lookup[string(flag.GetShort())]; ok {
-			return i18n.NewError("FlagShortExistsTemplate", flag)
-		}
 		ctx.flags_lookup[flag.GetName()] = flag
-		ctx.flags_lookup[string(flag.GetShort())] = flag
+
+		// of short flag requested - add it too
+		if flag.GetShort() != 0 {
+			if _, ok := ctx.flags_lookup[string(flag.GetShort())]; ok {
+				return i18n.NewError("FlagShortExistsTemplate", flag)
+			}
+			ctx.flags_lookup[string(flag.GetShort())] = flag
+		}
 		flag.SetLevel(ctx.level)
 	}
 
@@ -138,6 +142,7 @@ func (ctx *context) parse(app *Application, args []string) error {
 	ctx.arguments_lookup = make([]IArg, 0)
 
 	// initiaze context
+	// the very first command is app itself
 	ctx.mixArgsAndFlags = app.MixArgsAndFlags
 	ctx.cli_args = args
 	ctx.CurrentCommand = &app.Command
@@ -146,6 +151,7 @@ func (ctx *context) parse(app *Application, args []string) error {
 		return err
 	}
 	ctx.mergeArgs(app.Args)
+	ctx.updateCommandValidatables()
 
 	for token, ok := ctx.popCliArg(); ok; token, ok = ctx.popCliArg() {
 		if ctx.argsOnly || token == "-" || token == "--" {

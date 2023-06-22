@@ -21,11 +21,12 @@ func NilTerminator(int) {}
 type Application struct {
 	Command
 	// generic preset flags and commands
-	// Help flag. Can be customized  before calling Run
-	HelpFlag IFlag
-	// Version flag. Can be customized before calling Run
-	VersionFlag           IFlag
+	// Help flag. Can be customized  before calling Run. Use GetHelpFlag to access
+	helpFlag IFlag
+	// Version flag. Can be customized before calling Run. Use GetVersionFlag to access
+	versionFlag           IFlag
 	ShowHelpCommand       bool
+	UseOptionsCommand     bool
 	MixArgsAndFlags       bool
 	Author                string
 	Version               string
@@ -71,6 +72,26 @@ func (a *Application) GetArgument(name string) (IArg, error) {
 	return a.context.arguments_lookup[idx], nil
 }
 
+func (a *Application) GetArgumentValue(name string) (interface{}, error) {
+	arg, err := a.GetArgument(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return arg.GetValue(), nil
+}
+
+func (a *Application) GetFlagValue(name string) (interface{}, error) {
+	f, err := a.GetFlag(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return f.GetValue(), nil
+}
+
 func (a *Application) GetFlag(name string) (IFlag, error) {
 	f, ok := a.context.flags_lookup[name]
 	if !ok {
@@ -86,16 +107,23 @@ func (a *Application) Terminate(status int) {
 }
 
 // ErrorWriter sets the io.Writer to use for errors.
-func (a *Application) SetErrorWriter(w io.Writer) *Application {
+func (a *Application) SetErrorWriter(w io.Writer) {
 	a.errorWriter = w
-	return a
 }
 
 // Sets write to be used for uage and erros
-func (a *Application) SetWriter(w io.Writer) *Application {
+func (a *Application) SetWriter(w io.Writer) {
 	a.usageWriter = w
-	return a
 }
+
+func (a *Application) GetUsageWriter() io.Writer {
+	return a.usageWriter
+}
+
+func (a *Application) GetErrorWriter() io.Writer {
+	return a.errorWriter
+}
+
 func (a *Application) Stop() {
 	a.stopActionPropagation = true
 }
@@ -146,7 +174,7 @@ func (a *Application) Run(args []string) (err error) {
 
 func (a *Application) checkHelpRequested() bool {
 
-	if a.HelpFlag.GetValue().(bool) {
+	if a.helpFlag.GetValue().(bool) {
 		a.printUsage(nil)
 		return true
 	} else {
@@ -155,11 +183,11 @@ func (a *Application) checkHelpRequested() bool {
 }
 
 func (a *Application) checkVersionRequested() bool {
-	if a.VersionFlag == nil {
+	if a.versionFlag == nil {
 		return false
 	}
 
-	if a.VersionFlag.GetValue().(bool) {
+	if a.versionFlag.GetValue().(bool) {
 		fmt.Fprintln(a.usageWriter, a.Version)
 		return true
 	} else {
@@ -171,7 +199,8 @@ func (a *Application) checkVersionRequested() bool {
 func (a *Application) printError(err error) {
 
 	if int_err, ok := err.(*i18n.Error); ok {
-		templateManager.formatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
+		templateManager.FormatTemplate(a.errorWriter, int_err.GetKey(), int_err.GetData())
+		fmt.Fprintln(a.errorWriter)
 	} else {
 		fmt.Fprintln(a.errorWriter, templateManager.GetLocalizedString("Error", err))
 	}
@@ -193,10 +222,39 @@ func (a *Application) FormatUsage() error {
 	templateCtx := UsageTemplateContext{
 		AppName:        a.Name,
 		CurrentCommand: *a.context.CurrentCommand,
-		Flags:          mapIFlag(a.context.flags_lookup),
-		Args:           mapIArg(a.context.arguments_lookup),
+		Flags:          flagsForUsage(a.context.flags_lookup),
+		Args:           argsForUsage(a.context.arguments_lookup),
 	}
-	return templateManager.formatTemplate(a.usageWriter, "AppUsageTemplate", templateCtx)
+	return templateManager.FormatTemplate(a.usageWriter, "AppUsageTemplate", templateCtx)
+}
+
+func (a *Application) GetHelpFlag() IFlag {
+
+	if a.helpFlag == nil {
+		// add help flag - it is always present
+		help_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("HelpFlagShort"))
+		a.helpFlag = &Flag[Bool]{
+			Name:  templateManager.GetLocalizedString("HelpCommandAndFlagName"),
+			Short: help_short,
+			Usage: templateManager.GetLocalizedString("HelpFlagUsageTemplate"),
+		}
+		a.AddFlag(a.helpFlag)
+	}
+	return a.helpFlag
+}
+func (a *Application) GetVersionFlag() IFlag {
+	// add version flag is version value is set
+	if a.Version != "" {
+		version_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("VersionFlagShort"))
+
+		a.versionFlag = &Flag[Bool]{
+			Name:  templateManager.GetLocalizedString("VersionFlagName"),
+			Short: version_short,
+			Usage: templateManager.GetLocalizedString("VersionFlagUsageTemplate"),
+		}
+		a.AddFlag(a.versionFlag)
+	}
+	return a.versionFlag
 }
 
 func (a *Application) init() error {
@@ -204,14 +262,8 @@ func (a *Application) init() error {
 		return nil
 	}
 
-	// add help flag - it is always present
-	help_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("HelpFlagShort"))
-	a.HelpFlag = &Flag[Bool]{
-		Name:  templateManager.GetLocalizedString("HelpCommandAndFlagName"),
-		Short: help_short,
-		Usage: templateManager.GetLocalizedString("HelpFlagUsageTemplate"),
-	}
-	a.AddFlag(a.HelpFlag)
+	// make sure we create help flag
+	a.GetHelpFlag()
 
 	// If we have subcommands, add a help command at the top-level.
 	if a.ShowHelpCommand {
@@ -241,17 +293,7 @@ func (a *Application) init() error {
 		// make help first command
 		a.Commands = append([]*Command{help_cmd}, a.Commands...)
 	}
-	// add version flag is version value is set
-	if a.Version != "" {
-		version_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("VersionFlagShort"))
-
-		a.VersionFlag = &Flag[Bool]{
-			Name:  templateManager.GetLocalizedString("VersionFlagName"),
-			Short: version_short,
-			Usage: templateManager.GetLocalizedString("VersionFlagUsageTemplate"),
-		}
-		a.AddFlag(a.VersionFlag)
-	}
+	a.GetVersionFlag()
 
 	a.Command.init()
 

@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"io"
+	"strings"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -33,11 +34,12 @@ func NewError(key string, obj any) *Error {
 }
 
 type Localizer struct {
-	fallback        language.Tag
-	fallbackEntries Entries
-	lang            language.Tag
-	Printer         *message.Printer
-	builder         *catalog.Builder
+	fallback         language.Tag
+	fallbackEntries  Entries
+	lang             language.Tag
+	Printer          *message.Printer
+	builder          *catalog.Builder
+	TemplatesDefined []string
 }
 
 func NewLocalizer(lang language.Tag, fallback language.Tag) *Localizer {
@@ -49,6 +51,7 @@ func NewLocalizer(lang language.Tag, fallback language.Tag) *Localizer {
 
 	localizer.builder = catalog.NewBuilder(catalog.Fallback(fallback))
 	localizer.Printer = message.NewPrinter(lang, message.Catalog(localizer.builder))
+	localizer.TemplatesDefined = make([]string, 0)
 
 	return localizer
 }
@@ -61,6 +64,12 @@ func (l *Localizer) SetLanguage(tag language.Tag) {
 func (l *Localizer) addMessage(tag language.Tag, key string, msg interface{}) {
 	switch typed_msg := msg.(type) {
 	case string:
+		// check if this is define of a sub-template
+		s := strings.TrimLeft(typed_msg, " \t\n{-")
+		if strings.HasPrefix(s, "define") {
+			// this is a define of sub-template - remember the key
+			l.TemplatesDefined = append(l.TemplatesDefined, key)
+		}
 		l.builder.SetString(tag, key, typed_msg)
 	case catalog.Message:
 		l.builder.Set(tag, key, typed_msg)

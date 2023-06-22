@@ -39,16 +39,7 @@ func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 	var name string
 
 	// sort flags by level
-	slices.SortStableFunc(flags_args, func(a IFlagArg, b IFlagArg) bool {
-
-		fa, oka := a.(IFlag)
-		fb, okb := a.(IFlag)
-		if oka && okb {
-			return fa.GetLevel() < fb.GetLevel()
-		}
-		return false
-
-	})
+	slices.SortFunc(flags_args, flagSorter)
 
 	for _, fa := range flags_args {
 		if f, ok := fa.(IFlag); ok {
@@ -63,7 +54,7 @@ func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 
 		// usage can be a template - so make it first
 		buf := bytes.NewBuffer(nil)
-		templateManager.formatTemplate(buf, fa.GetUsage(), fa)
+		templateManager.FormatTemplate(buf, fa.GetUsage(), fa)
 		usage := buf.String()
 		usage = strings.TrimRight(usage, " \t.")
 		if len(fa.GetHints()) > 0 {
@@ -83,6 +74,9 @@ func tplCommandCategories(commands []*Command) []*CommandCategory {
 	categories = append(categories, &misc_cat)
 
 	for _, cmd := range commands {
+		if cmd.IsHidden() {
+			continue
+		}
 		if cmd.Category != nil {
 			// see if category already listed
 			found := false
@@ -130,7 +124,10 @@ func tplCommandsToTwoColumns(commands []*Command) [][2]string {
 			name = name + "(" + aliases + ")"
 		}
 
-		rows = append(rows, [2]string{name, tplFormatTemplate(cmd.Description, cmd, 0)})
+		usage := tplFormatTemplate(cmd.Description, cmd, 0)
+		// take first line only
+		lines := strings.Split(usage, "\n")
+		rows = append(rows, [2]string{name, lines[0]})
 	}
 	return rows
 }
