@@ -14,9 +14,9 @@ type context struct {
 	argsOnly         bool
 	noCommands       bool
 	cli_args         []string
+	arg_pos          int // Cursor into arguments - arguments are positioned, so they ar eprocessed in the order they arrive
 	flags_lookup     map[string]IFlag
 	arguments_lookup []IArg // arguments are positioned so array , not a map
-	arg_pos          int    // Cursor into arguments - arguments are positioned, so they ar eprocessed in the order they arrive
 	level            int    // depth of sub-command chain
 }
 
@@ -154,6 +154,12 @@ func (ctx *context) parse(app *Application, args []string) error {
 	ctx.updateCommandValidatables()
 
 	for token, ok := ctx.popCliArg(); ok; token, ok = ctx.popCliArg() {
+		// when debugging in VSCODE with input variable
+		// we can end up with empty strings in args array (does not happen on real command line)
+		// so we just going to ignore empty strings in args array
+		if len(token) == 0 {
+			continue
+		}
 		if ctx.argsOnly || token == "-" || token == "--" {
 			// uncoditional arg
 			err = ctx.processArg(token)
@@ -196,6 +202,81 @@ func (ctx *context) parse(app *Application, args []string) error {
 
 	return nil
 }
+
+func (ctx *context) resolveCompletion(app *Application, args []string) []string {
+
+	completions := make([]string, 0)
+
+	var (
+		currArg string
+		prevArg string
+	)
+
+	num_args := len(args)
+	if num_args > 1 {
+		currArg = args[len(args)-1]
+	}
+	if num_args > 2 {
+		prevArg = args[len(args)-2]
+	}
+
+	// check if flag started - skip if special completion flag
+	if currArg != "" && strings.HasPrefix(currArg, "--") {
+		if ctx.argsOnly {
+			return nil
+		}
+		flag_pref := currArg[2:]
+		for _, flag := range ctx.CurrentCommand.Flags {
+			if !flag.IsSetByUser() || flag.IsCumulative() {
+				// if fully matched do options if any
+				if flag.GetName() == flag_pref {
+					completions = append(completions, flag.GetHints()...)
+					return completions
+				}
+				// check if partially match - still loking for a flag name
+				if strings.HasPrefix(flag.GetName(), flag_pref) {
+					completions = append(completions, "--"+flag.GetName())
+				}
+			}
+		}
+		return completions
+	}
+
+	// prev argument was a flag and we are trying to get complition for possible values (if has hints)
+	prev_name := prevArg[2:]
+	if strings.HasPrefix(prevArg, "--") && prev_name != app.bashCompletionFlag.GetName() {
+		if flag, ok := ctx.flags_lookup[prev_name]; ok {
+			for _, hint := range flag.GetHints() {
+				if strings.HasPrefix(hint, currArg) {
+					completions = append(completions, hint)
+				}
+			}
+			return completions
+		}
+	}
+
+	for _, subc := range ctx.CurrentCommand.Commands {
+		completions = append(completions, subc.Name)
+	}
+
+	for _, arg := range ctx.CurrentCommand.Args {
+		if !arg.IsSetByUser() || arg.IsCumulative() {
+			for _, hint := range arg.GetHints() {
+				if strings.HasPrefix(hint, currArg) {
+					completions = append(completions, hint)
+				}
+			}
+		}
+	}
+
+	for _, flag := range ctx.CurrentCommand.Flags {
+		if !flag.IsSetByUser() || flag.IsCumulative() {
+			completions = append(completions, "--"+flag.GetName())
+		}
+	}
+	return completions
+}
+
 func (ctx *context) processArg(token string) error {
 
 	if cmd, ok := ctx.CurrentCommand.commands_map[token]; ok && !ctx.noCommands {

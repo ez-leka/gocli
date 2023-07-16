@@ -43,8 +43,11 @@ func (a *Arg[T]) GetHints() []string {
 func (a *Arg[T]) IsRequired() bool {
 	return a.Required
 }
-func (a *Arg[T]) IsHidden() bool{
+func (a *Arg[T]) IsHidden() bool {
 	return a.Hidden
+}
+func (a *Arg[T]) SetHidden(hidden bool) {
+	a.Hidden = hidden
 }
 
 func (a *Arg[T]) IsSetByUser() bool {

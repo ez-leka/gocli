@@ -34,6 +34,7 @@ func tplIsArg(fa IFlagArg) bool {
 func tplTwoColumns(rows [][2]string) string {
 	return formatTwoColumns(rows)
 }
+
 func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 	rows := [][2]string{}
 	var name string

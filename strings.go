@@ -3,22 +3,48 @@ package gocli
 import "github.com/ez-leka/gocli/i18n"
 
 var GoCliStrings = i18n.Entries{
+	"BashCompletionTemplate": `
+	#/usr/bin/env bash
+	_{{.Name}}_bash_autocomplete() {
+		local cur prev opts base
+		COMPREPLY=()
+		cur="{{printf "\x24"}}{{printf "\x7B"}}COMP_WORDS[COMP_CWORD]{{printf "\x7D"}}"
+		opts=$( {{printf "\x24"}}{{printf "\x7B"}}COMP_WORDS[0]{{printf "\x7D"}} --bash-completions "{{printf "\x24"}}{{printf "\x7B"}}COMP_WORDS[@]:1:$COMP_CWORD{{printf "\x7D"}}" )
+		COMPREPLY=( $(compgen -W "{{printf "\x24"}}{{printf "\x7B"}}opts{{printf "\x7D"}}" -- {{printf "\x24"}}{{printf "\x7B"}}cur{{printf "\x7D"}}) )
+		return 0
+	}
+	complete -F _{{.Name}}_bash_autocomplete -o default {{.Path}}
+	
+	`,
+
+	"ZshCompletionTemplate": `#compdef {{.Name}}
+	
+	_{{.Name}}() {{printf "\x7B"}}
+		local matches=($({{printf "\x24"}}{{printf "\x7B"}}words[1]{{printf "\x7D"}} --completion-bash "{{printf "\x24"}}{{printf "\x7B"}}(@)words[2,$CURRENT]{{printf "\x7D"}}"))
+		compadd -a matches
+	
+		if [[ $compstate[nmatches] -eq 0 && $words[$CURRENT] != -* ]]; then
+			_files
+		fi
+	{{printf "\x7D"}}
+	
+	if [[ "{{printf "\x24"}}{{printf "\x28"}}basename -- {{printf "\x24"}}{{printf "\x7B"}}(%%):-%%x{{printf "\x7D"}})" != "_{{.Name}}" ]]; then
+		compdef _{{.Name}} {{.Name}}
+	fi`,
 	"CmdFlagTemplate": `
 {{- define "CmdFlag"}}
-{{- if not .IsHidden -}}
 {{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{- end}}
-{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{- end}}
-{{- end}}
+{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{- end}}{{if .IsCumulative}}...{{end}}
 {{- end -}}`,
 	"CmdArgTemplate": `
-{{define "CmdArg"}}{{if not .IsHidden}}<{{.GetPlaceholder}}>{{end}}{{end}}
+{{define "CmdArg"}}<{{.GetPlaceholder}}>{{end}}
 `,
 	"CmdGroupTemplate": `
 {{- define "CmdGroup"}}
 {{- if .Command}} {{if .IsGenericCommand}}<{{end}}{{Translate .Command}} {{if .IsGenericCommand}}>{{end}}{{- end}}
 {{- range .RequiredFlags}}{{template "CmdFlag" .}}{{- end}}
 {{- if .OptionalFlags}} [{{end -}}{{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}{{- if .OptionalFlags}} ]{{- end}}
-{{- range .RequiredArgs}}{{template "CmdArg" .}}{{- end}}
+{{- range .RequiredArgs}} {{template "CmdArg" .}}{{- end}}
 {{- if .OptionalArgs}} [{{end -}}{{- range .OptionalArgs}}{{template "CmdArg" .}}{{- end}}{{- if .OptionalArgs}} ]{{end}}
 {{- end -}}`,
 	"FormatCommandCategoryTemplate": `
@@ -70,20 +96,22 @@ var GoCliStrings = i18n.Entries{
 {{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
 {{end}}
 `,
-	"HelpCommandAndFlagName":      `help`,
-	"HelpFlagShort":               `h`,
-	"HelpCommandUsageTemplate":    `show help`,
-	"HelpCommandArgUsageTemplate": `show help for <command>`,
-	"CommandArgName":              `command`,
-	"VersionFlagName":             `version`,
-	"VersionFlagShort":            `v`,
-	"VersionFlagUsageTemplate":    `show version`,
-	"HelpFlagUsageTemplate":       `Show context-sensitive help`,
+	"BashCompletionFlagName":          `bash-completions`,
+	"BashCompletionFlagUsageTemplate": `used in dynamic bash completion`,
+	"HelpCommandAndFlagName":          `help`,
+	"HelpFlagShort":                   `h`,
+	"HelpCommandUsageTemplate":        `show help`,
+	"HelpCommandArgUsageTemplate":     `show help for <command>`,
+	"CommandArgName":                  `command`,
+	"VersionFlagName":                 `version`,
+	"VersionFlagShort":                `v`,
+	"VersionFlagUsageTemplate":        `show version`,
+	"HelpFlagUsageTemplate":           `Show context-sensitive help`,
 
 	// Errors
 	"Error":                         "Error: %s",
 	"FlagLongExistsTemplate":        `flag --{{.Name}} already exists`,
-	"FlagShortExistsTemplate":       `flag -{{.Short}} already exists`,
+	"FlagShortExistsTemplate":       `flag -{{.Short|Rune}} already exists`,
 	"UnknownElementTemplate":        `unknown {{.Element.GetType}} {{.Element.GetPlaceholder}}`,
 	"ExtraArgument":                 `unexpected argument {{.Extra}}`,
 	"UnexpectedFlagValueTemplate":   `expected argument for flag --{{.Element.Name}} {{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}}) {{if .Extra}got '{{.Extra}}'{{end}}}}`,

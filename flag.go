@@ -1,5 +1,7 @@
 package gocli
 
+import "strings"
+
 type FlagValidator func(a *Application, f IFlag) error
 
 type TFlag interface {
@@ -13,6 +15,7 @@ type IFlag interface {
 	GetShort() rune
 	SetLevel(int)
 	GetLevel() int
+	IsInternal() bool
 }
 
 type Flag[T TFlag] struct {
@@ -30,6 +33,7 @@ type Flag[T TFlag] struct {
 	// for internal use
 	isSetByUser bool
 	level       int
+	internal    bool
 }
 
 func (f *Flag[T]) GetType() string {
@@ -45,6 +49,13 @@ func (f *Flag[T]) GetLevel() int {
 
 func (f *Flag[T]) IsHidden() bool {
 	return f.Hidden
+}
+
+func (f *Flag[T]) IsInternal() bool {
+	return f.internal
+}
+func (f *Flag[T]) SetHidden(hidden bool) {
+	f.Hidden = hidden
 }
 
 func (f *Flag[T]) IsBool() bool {
@@ -112,10 +123,21 @@ func (f *Flag[T]) getDestination() interface{} {
 }
 
 func (f *Flag[T]) SetValue(value string) error {
-	err := setFlagArgValue(f, value)
-	if err != nil {
-		return err
+	var vals []string
+	if f.IsCumulative() {
+		// could be comma-separated value
+		vals = strings.Split(value, ",")
+	} else {
+		vals = []string{value}
 	}
+
+	for _, v := range vals {
+		err := setFlagArgValue(f, v)
+		if err != nil {
+			return err
+		}
+	}
+
 	f.SetByUser()
 	return nil
 
