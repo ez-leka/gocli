@@ -306,6 +306,7 @@ type IFlagArg interface {
 	SetByUser()
 	SetValue(value string) error
 	SetRequired(bool)
+	SetHidden(bool)
 	SetPlaceholder(string)
 	Clear()
 	// private methodds
@@ -331,11 +332,52 @@ func (cat *CommandCategory) GetCommands() []*Command {
 type validationGroup struct {
 	Command          string
 	IsGenericCommand bool
-	RequiredFlags    []IValidatable
-	OptionalFlags    []IValidatable
-	RequiredArgs     []IValidatable
-	OptionalArgs     []IValidatable
+	requiredFlags    []IValidatable
+	optionalFlags    []IValidatable
+	requiredArgs     []IValidatable
+	optionalArgs     []IValidatable
 }
+
+func (vg validationGroup) RequiredFlags() []IValidatable {
+	ret := make([]IValidatable, 0)
+	for _, f := range vg.requiredFlags {
+		if !f.IsHidden() && !f.(IFlag).IsInternal() {
+			ret = append(ret, f)
+		}
+	}
+	return ret
+}
+
+func (vg validationGroup) OptionalFlags() []IValidatable {
+	ret := make([]IValidatable, 0)
+	for _, f := range vg.optionalFlags {
+		if !f.IsHidden() && !f.(IFlag).IsInternal() {
+			ret = append(ret, f)
+		}
+	}
+	return ret
+}
+
+func (vg validationGroup) RequiredArgs() []IValidatable {
+	ret := make([]IValidatable, 0)
+	for _, f := range vg.requiredArgs {
+		if !f.IsHidden() {
+			ret = append(ret, f)
+		}
+	}
+	return ret
+}
+
+func (vg validationGroup) OptionalArgs() []IValidatable {
+	ret := make([]IValidatable, 0)
+	for _, f := range vg.optionalArgs {
+		if !f.IsHidden() {
+			ret = append(ret, f)
+		}
+	}
+	return ret
+}
+
 type groupedFlagsArgs struct {
 	Ungrouped validationGroup
 	Groups    map[string]validationGroup

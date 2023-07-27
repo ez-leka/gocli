@@ -3,8 +3,8 @@ package gocli
 import (
 	"errors"
 	"os"
-
 	"reflect"
+
 	"testing"
 
 	"github.com/ez-leka/gocli/i18n"
@@ -14,9 +14,6 @@ import (
 )
 
 func TestApplication_Run(t *testing.T) {
-
-	// var output bytes.Buffer
-	// var rescueStdout *os.File
 
 	expected_files := []string{"cmd", "test2.txt", "test3.txt", "test4.txt", "test5.txt", "test6.txt", "test6.txt", "test7.txt", "a"}
 	for _, f := range expected_files {
@@ -1364,9 +1361,10 @@ func TestApplication_Run(t *testing.T) {
 
 			t.Logf("Running test %s", tt.name)
 			a := tt.setup()
-
-			if err := a.Run(tt.args); (err != nil) != tt.wantErr {
-				t.Errorf("Application.Run() error = %v, wantErr %v", err, tt.wantErr)
+			if len(tt.args) > 0 {
+				if err := a.Run(tt.args); (err != nil) != tt.wantErr {
+					t.Errorf("Application.Run() error = %v, wantErr %v", err, tt.wantErr)
+				}
 			}
 			if tt.check != nil {
 				tt.check(a)

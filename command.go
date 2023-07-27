@@ -66,10 +66,10 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 
 	grouped := groupedFlagsArgs{
 		Ungrouped: validationGroup{
-			RequiredFlags: make([]IValidatable, 0),
-			OptionalFlags: make([]IValidatable, 0),
-			RequiredArgs:  make([]IValidatable, 0),
-			OptionalArgs:  make([]IValidatable, 0),
+			requiredFlags: make([]IValidatable, 0),
+			optionalFlags: make([]IValidatable, 0),
+			requiredArgs:  make([]IValidatable, 0),
+			optionalArgs:  make([]IValidatable, 0),
 		},
 		Groups: make(map[string]validationGroup, 0),
 	}
@@ -96,9 +96,9 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 	for _, fa := range flags {
 		if len(fa.GetValidationGroups()) == 0 {
 			if fa.IsRequired() {
-				grouped.Ungrouped.RequiredFlags = append(grouped.Ungrouped.RequiredFlags, fa)
+				grouped.Ungrouped.requiredFlags = append(grouped.Ungrouped.requiredFlags, fa)
 			} else {
-				grouped.Ungrouped.OptionalFlags = append(grouped.Ungrouped.OptionalFlags, fa)
+				grouped.Ungrouped.optionalFlags = append(grouped.Ungrouped.optionalFlags, fa)
 			}
 			continue
 		}
@@ -107,16 +107,16 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 			ok := false
 			if g, ok = grouped.Groups[gname]; !ok {
 				g = validationGroup{
-					RequiredFlags: make([]IValidatable, 0),
-					OptionalFlags: make([]IValidatable, 0),
-					RequiredArgs:  make([]IValidatable, 0),
-					OptionalArgs:  make([]IValidatable, 0),
+					requiredFlags: make([]IValidatable, 0),
+					optionalFlags: make([]IValidatable, 0),
+					requiredArgs:  make([]IValidatable, 0),
+					optionalArgs:  make([]IValidatable, 0),
 				}
 			}
 			if fa.IsRequired() {
-				g.RequiredFlags = append(g.RequiredFlags, fa)
+				g.requiredFlags = append(g.requiredFlags, fa)
 			} else {
-				g.OptionalFlags = append(g.OptionalFlags, fa)
+				g.optionalFlags = append(g.optionalFlags, fa)
 			}
 			grouped.Groups[gname] = g
 		}
@@ -125,9 +125,9 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 	for _, fa := range args {
 		if len(fa.GetValidationGroups()) == 0 {
 			if fa.IsRequired() {
-				grouped.Ungrouped.RequiredArgs = append(grouped.Ungrouped.RequiredArgs, fa)
+				grouped.Ungrouped.requiredArgs = append(grouped.Ungrouped.requiredArgs, fa)
 			} else {
-				grouped.Ungrouped.OptionalArgs = append(grouped.Ungrouped.OptionalArgs, fa)
+				grouped.Ungrouped.optionalArgs = append(grouped.Ungrouped.optionalArgs, fa)
 			}
 			continue
 		}
@@ -136,17 +136,17 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 			ok := false
 			if g, ok = grouped.Groups[gname]; !ok {
 				g = validationGroup{
-					RequiredFlags: make([]IValidatable, 0),
-					OptionalFlags: make([]IValidatable, 0),
-					RequiredArgs:  make([]IValidatable, 0),
-					OptionalArgs:  make([]IValidatable, 0),
+					requiredFlags: make([]IValidatable, 0),
+					optionalFlags: make([]IValidatable, 0),
+					requiredArgs:  make([]IValidatable, 0),
+					optionalArgs:  make([]IValidatable, 0),
 				}
 
 			}
 			if fa.IsRequired() {
-				g.RequiredArgs = append(g.RequiredArgs, fa)
+				g.requiredArgs = append(g.requiredArgs, fa)
 			} else {
-				g.OptionalArgs = append(g.OptionalArgs, fa)
+				g.optionalArgs = append(g.optionalArgs, fa)
 			}
 			grouped.Groups[gname] = g
 
@@ -165,10 +165,10 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 			if g, ok = grouped.Groups[gname]; !ok {
 				g = validationGroup{
 					Command:       subc.GetName(),
-					RequiredFlags: make([]IValidatable, 0),
-					OptionalFlags: make([]IValidatable, 0),
-					RequiredArgs:  make([]IValidatable, 0),
-					OptionalArgs:  make([]IValidatable, 0),
+					requiredFlags: make([]IValidatable, 0),
+					optionalFlags: make([]IValidatable, 0),
+					requiredArgs:  make([]IValidatable, 0),
+					optionalArgs:  make([]IValidatable, 0),
 				}
 
 			}
@@ -192,11 +192,11 @@ func (c Command) GetGroupedFlagsAndArgs() groupedFlagsArgs {
 
 	// finally sort all flags by level
 	for _, g := range grouped.Groups {
-		slices.SortFunc(g.RequiredFlags, validatableSorter)
-		slices.SortFunc(g.OptionalFlags, validatableSorter)
+		slices.SortFunc(g.requiredFlags, validatableSorter)
+		slices.SortFunc(g.optionalFlags, validatableSorter)
 	}
-	slices.SortFunc(grouped.Ungrouped.RequiredFlags, validatableSorter)
-	slices.SortFunc(grouped.Ungrouped.OptionalFlags, validatableSorter)
+	slices.SortFunc(grouped.Ungrouped.requiredFlags, validatableSorter)
+	slices.SortFunc(grouped.Ungrouped.optionalFlags, validatableSorter)
 	return grouped
 }
 

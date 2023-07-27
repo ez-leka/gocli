@@ -19,22 +19,17 @@
             // ]
         },
         {
-            "name": "Launch file",
+            "name": "bash completion example",
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${file}",
+            "program": "${workspaceFolder}/examples/bash_completion/main.go",
             "args": [
-                "french"
+                "--bash-completions",
+                "--f"
+                // "--name",
+                // "j"
             ]
         },
-        {
-            "name": "Launch Package",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "cwd": ".",
-            "program": "cmd/"
-        }
     ]
 }

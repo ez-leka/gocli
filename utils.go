@@ -51,7 +51,7 @@ func validatableSorter(a IValidatable, b IValidatable) bool {
 
 func mergeValidatables(g validationGroup) []IValidatable {
 
-	return append(append(append(g.RequiredFlags, g.OptionalFlags...), g.RequiredArgs...), g.OptionalArgs...)
+	return append(append(append(g.requiredFlags, g.optionalFlags...), g.requiredArgs...), g.optionalArgs...)
 }
 
 // set value that works for flags and arguments

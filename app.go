@@ -1,10 +1,12 @@
 package gocli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/ez-leka/gocli/i18n"
@@ -13,6 +15,7 @@ import (
 )
 
 type Terminator func(status int)
+type GlobalFlagsHandler func()
 
 func NilTerminator(int) {}
 
@@ -24,17 +27,23 @@ type Application struct {
 	// Help flag. Can be customized  before calling Run. Use GetHelpFlag to access
 	helpFlag IFlag
 	// Version flag. Can be customized before calling Run. Use GetVersionFlag to access
-	versionFlag           IFlag
-	ShowHelpCommand       bool
-	UseOptionsCommand     bool
-	MixArgsAndFlags       bool
-	Author                string
-	Version               string
-	Terminator            Terminator
+	versionFlag       IFlag
+	ShowHelpCommand   bool
+	UseOptionsCommand bool
+	MixArgsAndFlags   bool
+	Author            string
+	Version           string
+	ShellCompletion   bool // if set to true generate command is added that will generate bash or zsh completing shell
+	Terminator        Terminator
+	// this handler is called after command oline is parced but vefore any validation or prcessing.
+	// it is useful if you have such global flags as log level, output format , etc that you want to confgure BEFOER caling custom (or any) validators
+	GlobalFlagsHandler    GlobalFlagsHandler
 	errorWriter           io.Writer // Destination for errors.
 	usageWriter           io.Writer // Destination for usage
 	context               *context
 	stopActionPropagation bool
+	bashCompletionFlag    IFlag
+	Path                  string
 }
 
 // Creates a new gocli application.
@@ -52,6 +61,7 @@ func New() *Application {
 		context:         &context{},
 	}
 	initTemplateManager()
+
 	return app
 }
 
@@ -142,12 +152,20 @@ func (a *Application) Run(args []string) (err error) {
 	a.context.mixArgsAndFlags = a.MixArgsAndFlags
 
 	err = a.context.parse(a, args[1:])
+	// first check if we doing shell completion and only report parse errors if not
+	if a.checkCompletion(args) {
+		return nil
+	}
 	if err != nil {
 		a.printUsage(err)
 		return err
 	}
 
-	// if hel flag was set app will exit with succsess
+	if a.GlobalFlagsHandler != nil {
+		a.GlobalFlagsHandler()
+	}
+
+	// if help flag was set app will exit with succsess
 	if a.checkHelpRequested() {
 		return nil
 	}
@@ -170,6 +188,16 @@ func (a *Application) Run(args []string) (err error) {
 	}
 
 	return err
+}
+
+func (a *Application) checkCompletion(args []string) bool {
+	if a.bashCompletionFlag != nil && a.bashCompletionFlag.GetValue().(bool) {
+		completions := a.context.resolveCompletion(a, args)
+
+		fmt.Printf("%s", strings.Join(completions, "\n"))
+		return true
+	}
+	return false
 }
 
 func (a *Application) checkHelpRequested() bool {
@@ -206,7 +234,7 @@ func (a *Application) printError(err error) {
 	}
 }
 func (a *Application) printUsage(err error) {
-	if err != nil {
+	if err != nil && err.Error() != "" {
 		a.printError(err)
 	}
 
@@ -244,7 +272,7 @@ func (a *Application) GetHelpFlag() IFlag {
 }
 func (a *Application) GetVersionFlag() IFlag {
 	// add version flag is version value is set
-	if a.Version != "" {
+	if a.Version != "" && a.versionFlag == nil {
 		version_short, _ := utf8.DecodeRuneInString(templateManager.GetLocalizedString("VersionFlagShort"))
 
 		a.versionFlag = &Flag[Bool]{
@@ -257,6 +285,11 @@ func (a *Application) GetVersionFlag() IFlag {
 	return a.versionFlag
 }
 
+func (a *Application) GenerateBashCompletion(writer io.Writer, kind string) error {
+	template := strings.Title(kind) + "CompletionTemplate"
+	return templateManager.FormatTemplate(writer, template, a)
+}
+
 func (a *Application) init() error {
 	if a.initialized {
 		return nil
@@ -264,6 +297,50 @@ func (a *Application) init() error {
 
 	// make sure we create help flag
 	a.GetHelpFlag()
+
+	if a.ShellCompletion {
+		a.AddCommand(Command{
+			Name:     "completion",
+			Commands: []*Command{},
+			Args: []IArg{
+				&Arg[OneOf]{
+					Name:    "shell",
+					Hints:   []string{"bash", "zsh"},
+					Default: "bash",
+				},
+			},
+			Action: func(a *Application, c *Command, i interface{}) (interface{}, error) {
+
+				a.Path = os.Args[0]
+
+				shell, _ := a.GetArgumentValue("shell")
+
+				f, err := os.Create("completion." + shell.(string))
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				defer f.Close()
+				w := bufio.NewWriter(f)
+
+				err = a.GenerateBashCompletion(w, shell.(string))
+				if err != nil {
+					fmt.Println(err.Error())
+					return nil, err
+				}
+				w.Flush()
+				return nil, nil
+			},
+		})
+
+		// add bash completion flag
+		a.bashCompletionFlag = &Flag[Bool]{
+			Name:     templateManager.GetLocalizedString("BashCompletionFlagName"),
+			Usage:    templateManager.GetLocalizedString("BashCompletionFlagUsageTemplate"),
+			Hidden:   true,
+			internal: true,
+		}
+		a.AddFlag(a.bashCompletionFlag)
+	}
 
 	// If we have subcommands, add a help command at the top-level.
 	if a.ShowHelpCommand {
