@@ -278,7 +278,7 @@ func (c *Command) ActionWrapper(app *Application, in_data interface{}) (interfac
 	var data interface{} = nil
 	var err error = nil
 	if c.Action != nil {
-		data, err = c.Action(app, c, in_data)
+		data, err = c.Action(app, app.context.CurrentCommand, in_data)
 	}
 	return data, err
 }
