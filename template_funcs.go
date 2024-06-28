@@ -2,20 +2,26 @@ package gocli
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/mitchellh/go-wordwrap"
 	"github.com/olekukonko/ts"
 	"golang.org/x/exp/slices"
 )
 
+// generic template functions
 func tplTranslate(in string) string {
 	return templateManager.localizer.Sprintf(in)
 }
-func tplIndent(indent int) string {
-	return strings.Repeat(" ", indent)
+
+func tplHeaderLevel(level int) string {
+	return strings.Repeat("#", level+templateManager.currentLevel)
+}
+
+func tplBlockBracket() string {
+	return "```"
 }
 func tplRune(c rune) string {
 	if c != 0 {
@@ -31,11 +37,57 @@ func tplIsArg(fa IFlagArg) bool {
 	_, ok := fa.(IArg)
 	return ok
 }
-func tplTwoColumns(rows [][2]string) string {
-	return formatTwoColumns(rows)
+
+func tplDict(values ...interface{}) (map[string]interface{}, error) {
+	if len(values)%2 != 0 {
+		return nil, errors.New("invalid dict call")
+	}
+	dict := make(map[string]interface{}, len(values)/2)
+	for i := 0; i < len(values); i += 2 {
+		key, ok := values[i].(string)
+		if !ok {
+			return nil, errors.New("dict keys must be strings")
+		}
+		dict[key] = values[i+1]
+	}
+	return dict, nil
 }
 
-func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
+func tplSynopsisFlag(flag IFlag) string {
+	flag_str := ""
+	if flag.GetShort() != 0 {
+		flag_str = fmt.Sprintf("-%c ", flag.GetShort())
+	}
+	flag_str += fmt.Sprintf("--%s", flag.GetName())
+	return flag_str
+}
+
+func tplSynopsys(ctx UsageTemplateContext) string {
+	synopsis := ctx.CurrentCommand.Name
+	for p := ctx.CurrentCommand.parent; p != nil; p = p.parent {
+		parent_synopsis := p.Name
+
+		// add any parent required flags
+		// and make a note of any optional
+		has_optional_flags := false
+		for _, f := range p.Flags {
+			if f.IsRequired() {
+				parent_synopsis += " " + tplSynopsisFlag(f)
+			} else {
+				has_optional_flags = true
+			}
+			
+		}
+		if has_optional_flags {
+			parent_synopsis += tplTranslate("options")
+		}
+		synopsis = parent_synopsis + synopsis
+	}
+
+	return synopsis
+}
+
+func tplFlagsArgsToTwoColumns(flags_args []IFlagArg, level int) [][2]string {
 	rows := [][2]string{}
 	var name string
 
@@ -55,11 +107,11 @@ func tplFlagsArgsToTwoColumns(flags_args []IFlagArg) [][2]string {
 
 		// usage can be a template - so make it first
 		buf := bytes.NewBuffer(nil)
-		templateManager.FormatTemplate(buf, fa.GetUsage(), fa)
+		templateManager.doFormatTemplate(buf, fa.GetUsage(), fa)
 		usage := buf.String()
 		usage = strings.TrimRight(usage, " \t.")
 		if len(fa.GetHints()) > 0 {
-			usage += ". " + templateManager.localizer.Sprintf("FormatHints", strings.Join(fa.GetHints(), ","))
+			usage += " " + templateManager.localizer.Sprintf("FormatHints", strings.Join(fa.GetHints(), ","))
 		}
 		if fa.GetDefault() != "" {
 			usage += " " + templateManager.localizer.Sprintf("FormatDefault", fa.GetDefault())
@@ -125,7 +177,7 @@ func tplCommandsToTwoColumns(commands []*Command) [][2]string {
 			name = name + "(" + aliases + ")"
 		}
 
-		usage := tplFormatTemplate(cmd.Description, cmd, 0)
+		usage := tplFormatTemplate(cmd.Description, cmd)
 		// take first line only
 		lines := strings.Split(usage, "\n")
 		rows = append(rows, [2]string{name, lines[0]})
@@ -133,38 +185,18 @@ func tplCommandsToTwoColumns(commands []*Command) [][2]string {
 	return rows
 }
 
-func tplFormatTemplate(tpl string, obj any, indent int) string {
+func tplFormatTemplate(tpl string, obj any) string {
 
 	buf := bytes.NewBuffer(nil)
-	templateManager.doFormatTemplate(buf, tpl, obj, indent)
+	templateManager.doFormatTemplate(buf, tpl, obj)
 	return buf.String()
 }
 
-func formatTwoColumns(rows [][2]string) string {
-	result := ""
-	width := terminalWidth()
-	// calculate max width
-	first_col_max_width := width/2 - indent - padding
-	// Find size of first column.
-	first_col_width := 0
-	for _, row := range rows {
-		if c := len(row[0]); c > first_col_width && c < first_col_max_width {
-			first_col_width = c
-		}
-	}
-
-	second_col_width := width - first_col_width - indent - padding
-
-	format := fmt.Sprintf("%%-%ds%%-%ds%%-%ds%%-%ds\n", indent, first_col_width, padding, second_col_width)
+func tplDefinitionList(rows [][2]string) string {
+	result := "\n"
 
 	for _, row := range rows {
-		col2_lines := strings.Split(wordwrap.WrapString(row[1], uint(second_col_width)), "\n")
-
-		col1 := row[0]
-		for _, col2 := range col2_lines {
-			result += fmt.Sprintf(format, "", col1, "", col2)
-			col1 = ""
-		}
+		result += fmt.Sprintf("**%s**\n: %s\n\n", row[0], row[1])
 	}
 	return result
 }

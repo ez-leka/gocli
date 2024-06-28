@@ -338,24 +338,47 @@ type validationGroup struct {
 	optionalArgs     []IValidatable
 }
 
-func (vg validationGroup) RequiredFlags() []IValidatable {
+func (vg validationGroup) RequiredFlags(level int) []IValidatable {
 	ret := make([]IValidatable, 0)
 	for _, f := range vg.requiredFlags {
-		if !f.IsHidden() && !f.(IFlag).IsInternal() {
+		if !f.IsHidden() && !f.(IFlag).IsInternal() && f.(IFlag).GetLevel() >= level {
 			ret = append(ret, f)
 		}
 	}
 	return ret
 }
 
-func (vg validationGroup) OptionalFlags() []IValidatable {
+func (vg validationGroup) OptionalFlags(level int) []IValidatable {
+
 	ret := make([]IValidatable, 0)
 	for _, f := range vg.optionalFlags {
-		if !f.IsHidden() && !f.(IFlag).IsInternal() {
+		if !f.IsHidden() && !f.(IFlag).IsInternal() && f.(IFlag).GetLevel() >= level {
 			ret = append(ret, f)
 		}
 	}
+
 	return ret
+}
+
+// global flags are flags that belong to application level, i.e level 0
+func (vg validationGroup) HasGlobalFlags(level int) bool {
+	hasGlobalOptions := false
+
+	for _, f := range vg.requiredFlags {
+		if f.(IFlag).GetLevel() == 0 && level != 0 {
+			hasGlobalOptions = true
+			break
+		}
+	}
+
+	for _, f := range vg.optionalFlags {
+		if f.(IFlag).GetLevel() == 0 && level != 0 {
+			hasGlobalOptions = true
+			break
+		}
+	}
+
+	return hasGlobalOptions
 }
 
 func (vg validationGroup) RequiredArgs() []IValidatable {

@@ -33,80 +33,116 @@ var GoCliStrings = i18n.Entries{
 	fi`,
 	"CmdFlagTemplate": `
 {{- define "CmdFlag"}}
-{{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{- end}}
-{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{- end}}{{if .IsCumulative}}...{{end}}
-{{- end -}}`,
+{{- if .GetShort}} -{{.GetShort|Rune}}{{else}} --{{.GetName}}{{end -}}
+{{- if not .IsBool}}[=]<{{.GetPlaceholder}}>{{end}}{{if .IsCumulative}}...{{end -}}
+{{end -}}`,
 	"CmdArgTemplate": `
-{{define "CmdArg"}}<{{.GetPlaceholder}}>{{end}}
+{{- define "CmdArg"}}<{{.GetPlaceholder}}>{{end -}}
 `,
+	"CmdFullCommand": `
+
+	`,
 	"CmdGroupTemplate": `
 {{- define "CmdGroup"}}
-{{- if .Command}} {{if .IsGenericCommand}}<{{end}}{{Translate .Command}} {{if .IsGenericCommand}}>{{end}}{{- end}}
-{{- range .RequiredFlags}}{{template "CmdFlag" .}}{{- end}}
-{{- if .OptionalFlags}} [{{end -}}{{- range .OptionalFlags}}{{template "CmdFlag" .}}{{end -}}{{- if .OptionalFlags}} ]{{- end}}
-{{- range .RequiredArgs}} {{template "CmdArg" .}}{{- end}}
-{{- if .OptionalArgs}} [{{end -}}{{- range .OptionalArgs}}{{template "CmdArg" .}}{{- end}}{{- if .OptionalArgs}} ]{{end}}
-{{- end -}}`,
+{{- if .Group.Command}} {{if .Group.IsGenericCommand}}<{{end}}{{Translate .Group.Command}} {{if .Group.IsGenericCommand}}>{{end}}{{end -}}
+{{- if .Group.HasGlobalFlags .Level}} [global options] {{end -}}
+{{- range .Group.RequiredFlags .Level}}{{template "CmdFlag" .}}{{end -}}
+{{- if .Group.OptionalFlags .Level}} [{{end}}{{range .Group.OptionalFlags .Level}}{{template "CmdFlag" .}}{{end}}{{if .Group.OptionalFlags .Level}} ]{{end -}}
+{{- range .Group.RequiredArgs}} {{template "CmdArg" .}}{{end -}}
+{{- if .Group.OptionalArgs}} [ {{end}}{{range .Group.OptionalArgs}}{{template "CmdArg" .}} {{end}}{{if .Group.OptionalArgs}}]{{end -}}
+{{end -}}`,
 	"FormatCommandCategoryTemplate": `
 {{- define "FormatCommandCategory"}}
 {{- if .}}
 {{- range .|CommandCategories}}
-{{.Name}}
-{{.GetCommands|CommandsToTwoColumns|TwoColumns}}
-{{- end}}
-{{- end}}
-{{- end -}}`,
+{{HLevel 1}} {{.Name}}
+{{.GetCommands|CommandsToTwoColumns|DefinitionList}}
+{{end -}}
+{{end -}}
+{{end -}}`,
 	"FlagListTemplate": `
-{{- define "FlagList"}}
-{{- if .}}
-{{Translate "Flags"}}:
-{{.|FlagsArgsToTwoColumns|TwoColumns}}
-{{- end}}
-{{- end -}}`,
+{{define "FlagList"}}
+{{if .Flags}}
+{{HLevel 1}} {{if eq .Level 0}}{{Translate "Global"}} {{end}}{{Translate "Options"}}
+{{FlagsArgsToTwoColumns .Flags .Level|DefinitionList}}
+{{end}}
+{{end}}`,
 	"ArgListTemplate": `
-{{- define "ArgList"}}
-{{- if .}}
-{{Translate "Arguments"}}:
-{{.|FlagsArgsToTwoColumns|TwoColumns}}
-{{- end -}}	
-{{- end -}}
+{{define "ArgList"}}
+{{if .Args}}
+{{HLevel 1}} {{Translate "Arguments"}}:
+{{FlagsArgsToTwoColumns .Args .Level|DefinitionList}}
+{{end}}
+{{end}}
 `,
 	"AppUsageTemplate": `
-{{- if .CurrentCommand.Description}}
-{{FormatTemplate .CurrentCommand.Description .CurrentCommand 4}}
-{{end}}
-{{- template "FormatCommandCategory" .CurrentCommand.Commands}}
-{{- template "FlagList" .Flags}}
-{{- template "ArgList" .Args}}
-{{Translate "Usage"}}: 
-{{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs -}}
+{{- if eq .Level  0}}
+{{- HLevel 1}} {{Translate "Name"}}
+{{.CurrentCommand.FullCommand -}}
+{{- else -}}
+{{- HLevel 0}} {{.CurrentCommand.Name}} {{- if .DocGeneration}} {{Translate "command"}}{{ else }} - {{FormatTemplate .CurrentCommand.Description .CurrentCommand}}{{end -}}
+{{- end}}
+{{if eq .Level  0 -}}
+{{HLevel 1}} {{Translate "Synopsis"}}
+{{- end}}
+{{BlockBracket}}
+{{- $groups := .CurrentCommand.GetGroupedFlagsAndArgs}}
 {{- $group_idx := 0}}
-{{Indent 4}}{{.CurrentCommand.FullCommand}} 
-{{- if $groups.Ungrouped -}}
-	{{- template "CmdGroup" $groups.Ungrouped -}}
-{{- end -}}
+{{.CurrentCommand.FullCommand}}
+{{- if $groups.Ungrouped}}
+	{{- template "CmdGroup" Dict "Group" $groups.Ungrouped "Level" .Level}}
+{{end -}}
 {{- if gt (len $groups.Groups) 1}} ({{end -}}
-  {{- range $groups.Groups}}
-  {{- if eq $group_idx 1}} | {{end}} 
-  {{- template "CmdGroup" .}}{{- $group_idx = 1}}
-  {{- end -}}
-  {{- if gt (len $groups.Groups) 1}} ){{end}}
-
-{{if .CurrentCommand.Usage}}
-{{FormatTemplate .CurrentCommand.Usage .CurrentCommand 4}}
+  {{- range $groups.Groups -}}
+  {{- if eq $group_idx 1}} | {{end -}}
+  {{- template "CmdGroup" Dict "Group" . "Level" .Level -}}{{$group_idx = 1}}
+  {{end -}}
+  {{- if gt (len $groups.Groups) 1}} ){{end -}}
+{{BlockBracket}}
+{{if and .CurrentCommand.Description .DocGeneration}}
+{{- if eq .Level  0}}
+{{HLevel 1}} {{Translate "Description"}}
+{{end -}}
+{{FormatTemplate .CurrentCommand.Description .CurrentCommand}}
+{{end -}}
+{{- if .CurrentCommand.Usage}}
+{{FormatTemplate .CurrentCommand.Usage .CurrentCommand}}
+{{end -}}
+{{- template "FormatCommandCategory" .CurrentCommand.Commands}}
+{{- template "FlagList" Dict "Flags" .Flags "Level" .Level}}
+{{- template "ArgList" Dict "Args" .Args  "Level" .Level}}
+{{if not .DocGeneration}}
+Use "{{.AppName}} <command> --help" for more information about a given command.
+{{if .UseOptionsCommand}}
+Use "{{.AppName}} options" for a list of global command-line options (applies to all commands).
+{{end}}
 {{end}}
 `,
-	"BashCompletionFlagName":          `bash-completions`,
-	"BashCompletionFlagUsageTemplate": `used in dynamic bash completion`,
-	"HelpCommandAndFlagName":          `help`,
-	"HelpFlagShort":                   `h`,
-	"HelpCommandUsageTemplate":        `show help`,
-	"HelpCommandArgUsageTemplate":     `show help for <command>`,
-	"CommandArgName":                  `command`,
-	"VersionFlagName":                 `version`,
-	"VersionFlagShort":                `v`,
-	"VersionFlagUsageTemplate":        `show version`,
-	"HelpFlagUsageTemplate":           `Show context-sensitive help`,
+	"ShellCompletionCommand":           `generate-completion`,
+	"ShellCompletionCommandDesc":       `generate completion script for bash or zch shell`,
+	"ShellCompletionFlagUsageTemplate": `used in dynamic bash completion`,
+	"ShellCompletionArgName":           `shell`,
+	"ShellCompetionArgUsage":           `type of shell for which to generate complition script`,
+	"DocGenerationCommand":             `generate-documentation`,
+	"DocGenerationCommandDesc":         `Generate documentation in specified format`,
+	"DocGenerationFormatArgName":       `format`,
+	"DocGenerationFormatArgUsage":      `Format of documenation to be generated.`,
+	"DocGenerationCssFlagName":         `css`,
+	"DocGenerationCssFlagUsage":        `path to CSS stylesheet (applies to HTML only).`,
+	"DocGenerationIconFlagName":        `icon`,
+	"DocGenerationIconFlagUsage":       `path to image to be sed as browser icon (applies to HTML only).`,
+	"DocGenerationTocFlagName":         `toc`,
+	"DocGenerationTocFlagUsage":        `if set, TOC will be generated (applies to HTML only)`,
+
+	"HelpCommandAndFlagName":      `help`,
+	"HelpFlagShort":               `h`,
+	"HelpCommandUsageTemplate":    `show help`,
+	"HelpCommandArgUsageTemplate": `show help for <command>`,
+	"CommandArgName":              `command`,
+	"VersionFlagName":             `version`,
+	"VersionFlagShort":            `v`,
+	"VersionFlagUsageTemplate":    `show version`,
+	"HelpFlagUsageTemplate":       `Show context-sensitive help`,
 
 	// Errors
 	"Error":                         "Error: %s",
@@ -132,6 +168,8 @@ var GoCliStrings = i18n.Entries{
 	"NoUniqueFlagArgCommandInGroup": `must specify flag, argument or command. Try --help`,
 	"FlagValidationFailed":          `Invalid flag value {{.Extra}} for flag --{{.Element.Name}}{{if .Element.Short}}(-{{.Element.Short|Rune}}{{end}})`,
 	"CommandRequired":               `Command required. Try --help`,
+	"command":                       `command`,
+	"subCommand":                    `sub-command`,
 	"FormatCommandsCategory":        "Commands",
 	"FormatMisCommandsCategory":     "Miscellaneous Commands",
 	"FormatFlagWithShort":           "-%c, --%s",
@@ -139,5 +177,6 @@ var GoCliStrings = i18n.Entries{
 	"FormatFlagShort":               "-%c",
 	"FormatArg":                     "%s",
 	"FormatDefault":                 "(Default: %s)",
-	"FormatHints":                   "One of: %s",
+	"FormatHints":                   "One of %s",
+	"FormatGlobal":                  "Global",
 }

@@ -36,7 +36,7 @@ func NewError(key string, obj any) *Error {
 type Localizer struct {
 	fallback         language.Tag
 	fallbackEntries  Entries
-	lang             language.Tag
+	current_lang     language.Tag
 	Printer          *message.Printer
 	builder          *catalog.Builder
 	TemplatesDefined []string
@@ -45,8 +45,8 @@ type Localizer struct {
 func NewLocalizer(lang language.Tag, fallback language.Tag) *Localizer {
 
 	localizer := &Localizer{
-		lang:     lang,
-		fallback: fallback,
+		current_lang: lang,
+		fallback:     fallback,
 	}
 
 	localizer.builder = catalog.NewBuilder(catalog.Fallback(fallback))
@@ -57,8 +57,13 @@ func NewLocalizer(lang language.Tag, fallback language.Tag) *Localizer {
 }
 
 func (l *Localizer) SetLanguage(tag language.Tag) {
+	l.current_lang = tag
 	l.Printer = message.NewPrinter(tag, message.Catalog(l.builder))
 
+}
+
+func (l *Localizer) GetLanguage() language.Tag {
+	return l.current_lang
 }
 
 func (l *Localizer) addMessage(tag language.Tag, key string, msg interface{}) {
