@@ -7,23 +7,47 @@ import (
 	"github.com/ez-leka/gocli/i18n"
 )
 
-func flagsForUsage(m map[string]IFlag) []IFlagArg {
+func lookupFlagsForUsage(m map[string]IFlag, show_up_to_level int, show_hidden_flags bool) []IFlagArg {
+	// use every flag once
 	uchecker := make(map[IFlag]bool)
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
+		if f.IsInternal() {
+			// never use internal flags in usage
+			continue
+		}
+		if f.GetLevel() < show_up_to_level {
+			// do not show commands below show level
+			continue
+		}
+		if f.IsHidden() && !show_hidden_flags {
+			continue
+		}
 		if !uchecker[f] {
 			ret = append(ret, f)
 			uchecker[f] = true
 		}
 	}
+
 	return ret
 }
-func argsForUsage(m []IArg) []IFlagArg {
+func lookupArgsForUsage(m []IArg) []IFlagArg {
 	ret := make([]IFlagArg, 0)
 	for _, f := range m {
 		ret = append(ret, f)
 	}
 	return ret
+}
+
+func commandFlagsForUsage(m []IFlag) []IFlagArg {
+	ret := make([]IFlagArg, 0)
+	for _, f := range m {
+		ret = append(ret, f)
+	}
+	return ret
+}
+func commandArgsForUsage(m []IArg) []IFlagArg {
+	return lookupArgsForUsage(m)
 }
 
 func flagSorter(a IFlagArg, b IFlagArg) bool {

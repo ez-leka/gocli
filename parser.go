@@ -453,12 +453,13 @@ func (ctx *context) validateGrouping(set map[string]IValidatable) ([]IValidatabl
 func (ctx *context) updateCommandValidatables() {
 
 	ctx.CurrentCommand.setByUser = true
+	ctx.CurrentCommand.level = ctx.level
 
 	// create a single map of things to validate
 	ctx.CurrentCommand.validatables = make(map[string]IValidatable)
 	for name, f := range ctx.flags_lookup {
 		if len(name) == 1 {
-			// skip short flags because ther is always a long one for it
+			// skip short flags because there is always a long one for it
 			continue
 		}
 		ctx.CurrentCommand.validatables[name] = f

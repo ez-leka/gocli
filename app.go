@@ -2,6 +2,7 @@ package gocli
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/ez-leka/gocli/i18n"
 	"golang.org/x/exp/slices"
+	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
@@ -71,6 +73,10 @@ func (a *Application) GetTemplateManager() *TemplateManager {
 
 func (a Application) SetLanguage(tag language.Tag) {
 	templateManager.localizer.SetLanguage(tag)
+}
+
+func (c *Application) AddArgs(args []IArg) {
+	panic("Argument specification is not allowed. Application can have commands and global options(flag) only.")
 }
 
 func (a *Application) GetArgument(name string) (IArg, error) {
@@ -238,22 +244,32 @@ func (a *Application) printUsage(err error) {
 		a.printError(err)
 	}
 
-	if err := a.FormatUsage(); err != nil {
+	if err := a.formatUsage(); err != nil {
 		fmt.Fprintln(a.errorWriter, err.Error())
 		a.Terminate(1)
 	}
 	a.Terminate(0)
 }
 
-func (a *Application) FormatUsage() error {
+func (a *Application) formatUsage() error {
+
+	show_hidden_flags := true
+	if a.UseOptionsCommand && a.context.CurrentCommand.level == 0 {
+		// hide hidden application options that are shown with built in options command
+		show_hidden_flags = false
+	}
 
 	templateCtx := UsageTemplateContext{
-		AppName:        a.Name,
-		CurrentCommand: *a.context.CurrentCommand,
-		Flags:          flagsForUsage(a.context.flags_lookup),
-		Args:           argsForUsage(a.context.arguments_lookup),
+		AppName: a.Name,
+		// Synopsis:          a.context.CurrentCommand.GetSynopsis(),
+		CurrentCommand:    *a.context.CurrentCommand,
+		Flags:             lookupFlagsForUsage(a.context.flags_lookup, a.context.CurrentCommand.level, show_hidden_flags),
+		Args:              lookupArgsForUsage(a.context.arguments_lookup),
+		Level:             a.context.CurrentCommand.level,
+		UseOptionsCommand: a.UseOptionsCommand,
 	}
-	return templateManager.FormatTemplate(a.usageWriter, "AppUsageTemplate", templateCtx)
+
+	return templateManager.FormatTemplate(a.usageWriter, "AppUsageTemplate", templateCtx, WithOutput(TemplateTerminal))
 }
 
 func (a *Application) GetHelpFlag() IFlag {
@@ -286,8 +302,8 @@ func (a *Application) GetVersionFlag() IFlag {
 }
 
 func (a *Application) GenerateBashCompletion(writer io.Writer, kind string) error {
-	template := strings.Title(kind) + "CompletionTemplate"
-	return templateManager.FormatTemplate(writer, template, a)
+	template := cases.Title(templateManager.localizer.GetLanguage()).String(kind) + "CompletionTemplate"
+	return templateManager.FormatTemplate(writer, template, a, WithOutput(TemplateText))
 }
 
 func (a *Application) init() error {
@@ -300,13 +316,15 @@ func (a *Application) init() error {
 
 	if a.ShellCompletion {
 		a.AddCommand(Command{
-			Name:     "completion",
-			Commands: []*Command{},
+			Name:        templateManager.GetLocalizedString("ShellCompletionCommand"),
+			Description: templateManager.GetLocalizedString("ShellCompletionCommandDesc"),
 			Args: []IArg{
 				&Arg[OneOf]{
-					Name:    "shell",
-					Hints:   []string{"bash", "zsh"},
-					Default: "bash",
+					Name:     templateManager.GetLocalizedString("ShellCompletionArgName"),
+					Usage:    templateManager.GetLocalizedString("ShellCompetionArgUsage"),
+					Hints:    []string{"bash", "zsh"},
+					Default:  "bash",
+					Required: false,
 				},
 			},
 			Action: func(a *Application, c *Command, i interface{}) (interface{}, error) {
@@ -334,8 +352,8 @@ func (a *Application) init() error {
 
 		// add bash completion flag
 		a.bashCompletionFlag = &Flag[Bool]{
-			Name:     templateManager.GetLocalizedString("BashCompletionFlagName"),
-			Usage:    templateManager.GetLocalizedString("BashCompletionFlagUsageTemplate"),
+			Name:     "bash-completions", // not localizable - internal
+			Usage:    templateManager.GetLocalizedString("ShellCompletionFlagUsageTemplate"),
 			Hidden:   true,
 			internal: true,
 		}
@@ -372,7 +390,93 @@ func (a *Application) init() error {
 	}
 	a.GetVersionFlag()
 
+	// add command to generate documentation
+	a.AddCommand(Command{
+		Name:        templateManager.GetLocalizedString("DocGenerationCommand"),
+		Description: templateManager.GetLocalizedString("DocGenerationCommandDesc"),
+		Usage:       "",
+		Args: []IArg{
+			&Arg[OneOf]{
+				Name:     templateManager.GetLocalizedString("DocGenerationFormatArgName"),
+				Usage:    templateManager.GetLocalizedString("DocGenerationFormatArgUsage"),
+				Hints:    []string{string(TemplateHTML), string(TemplateMarkdown), string(TemplateManpage)},
+				Required: false,
+				Default:  string(TemplateMarkdown),
+			}},
+		Flags: []IFlag{
+			&Flag[String]{
+				Name:     templateManager.GetLocalizedString("DocGenerationCssFlagName"),
+				Usage:    templateManager.GetLocalizedString("DocGenerationCssFlagUsage"),
+				Default:  "",
+				Required: false,
+			},
+			&Flag[String]{
+				Name:     templateManager.GetLocalizedString("DocGenerationIconFlagName"),
+				Usage:    templateManager.GetLocalizedString("DocGenerationIconFlagUsage"),
+				Default:  "",
+				Required: false,
+			},
+			&Flag[Bool]{
+				Name:     templateManager.GetLocalizedString("DocGenerationTocFlagName"),
+				Usage:    templateManager.GetLocalizedString("DocGenerationTocFlagUsage"),
+				Required: false,
+				Default:  "false",
+			},
+		},
+		Action: func(a *Application, c *Command, i interface{}) (interface{}, error) {
+			format, _ := a.GetArgumentValue(templateManager.GetLocalizedString("DocGenerationFormatArgName"))
+			css, _ := a.GetFlagValue(templateManager.GetLocalizedString("DocGenerationCssFlagName"))
+			icon, _ := a.GetFlagValue(templateManager.GetLocalizedString("DocGenerationIconFlagName"))
+			toc, _ := a.GetFlagValue(templateManager.GetLocalizedString("DocGenerationTocFlagName"))
+
+			// documentation is generated recurcively starting with app
+			buf := bytes.NewBuffer(nil)
+
+			if err := a.generateDocumentation(buf, a.Command, make([]string, 0), 0); err != nil {
+				return nil, err
+			}
+			return nil, templateManager.generateTemplateOutput(a.usageWriter, buf,
+				WithTitle(a.Name),
+				WithOutput(OutputFormat(format.(string))),
+				WithCSS(css.(string)),
+				WithIcon(icon.(string)),
+				WithTOC(toc.(bool)),
+			)
+		},
+	})
+
 	a.Command.init()
+
+	return nil
+}
+
+func (a *Application) generateDocumentation(buf *bytes.Buffer, cmd Command, args []string, level int) error {
+
+	// make context for current command
+	args = append(args, cmd.Name)
+
+	a.context.level = 0
+	a.context.parse(a, args[1:])
+
+	templateCtx := UsageTemplateContext{
+		AppName:        a.Name,
+		CurrentCommand: *a.context.CurrentCommand,
+		Flags:          lookupFlagsForUsage(a.context.flags_lookup, a.context.CurrentCommand.level, true),
+		Args:           lookupArgsForUsage(a.context.arguments_lookup),
+		Level:          level,
+		DocGeneration:  true,
+	}
+	templateManager.currentLevel = level
+
+	if err := templateManager.doFormatTemplate(buf, "AppUsageTemplate", templateCtx); err != nil {
+		return err
+	}
+
+	for _, sub_cmd := range cmd.Commands {
+		if err := a.generateDocumentation(buf, *sub_cmd, args, level+1); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

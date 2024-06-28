@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Launch test function",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}",
+            "args": [
+                "-test.run",
+                "TestTerminal_Render"
+            ]
+        },
+        {
             "name": "Launch tests",
             "type": "go",
             "request": "launch",
@@ -31,5 +42,30 @@
                 // "j"
             ]
         },
+        {
+            "name": "help example - create",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/examples/help/main.go",
+            "args": [
+                "create",
+                "user",
+                "--help"
+                // "generate-documentation",
+                // "manpage",
+            ]
+        },
+        {
+            "name": "help example - edit",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/examples/help/main.go",
+            "args": [
+                "edit",
+            ]
+        },
+
     ]
 }

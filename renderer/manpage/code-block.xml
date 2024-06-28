@@ -1,0 +1,44 @@
+<style name="code-block">
+  <entry type="Error" style="border:#ff0000 bg:#c0c0c0"/>
+  <entry type="Background" style="bg:#c0c0c0"/>
+  <entry type="Text" style="bg:#c0c0c0"/>
+  <entry type="Keyword" style="bold #008000 bg:#c0c0c0"/>
+  <entry type="KeywordPseudo" style="nobold bg:#c0c0c0"/>
+  <entry type="KeywordType" style="nobold #b00040"/>
+  <entry type="NameAttribute" style="#7d9029"/>
+  <entry type="NameBuiltin" style="#008000 bg:#c0c0c0"/>
+  <entry type="NameClass" style="bold #0000ff bg:#c0c0c0"/>
+  <entry type="NameConstant" style="#880000 bg:#c0c0c0"/>
+  <entry type="NameDecorator" style="#aa22ff bg:#c0c0c0"/>
+  <entry type="NameEntity" style="bold #999999 bg:#c0c0c0"/>
+  <entry type="NameException" style="bold #d2413a bg:#c0c0c0"/>
+  <entry type="NameFunction" style="#0000ff bg:#c0c0c0"/>
+  <entry type="NameLabel" style="#a0a000 bg:#c0c0c0"/>
+  <entry type="NameNamespace" style="bold #0000ff bg:#c0c0c0"/>
+  <entry type="NameTag" style="bold #008000 bg:#c0c0c0"/>
+  <entry type="NameVariable" style="#19177c bg:#c0c0c0"/>
+  <entry type="LiteralString" style="#ba2121 bg:#c0c0c0"/>
+  <entry type="LiteralStringDoc" style="italic bg:#c0c0c0"/>
+  <entry type="LiteralStringEscape" style="bold #bb6622 bg:#c0c0c0"/>
+  <entry type="LiteralStringInterpol" style="bold #bb6688 bg:#c0c0c0"/>
+  <entry type="LiteralStringOther" style="#008000 bg:#c0c0c0"/>
+  <entry type="LiteralStringRegex" style="#bb6688 bg:#c0c0c0"/>
+  <entry type="LiteralStringSymbol" style="#19177c bg:#c0c0c0"/>
+  <entry type="LiteralNumber" style="#666666 bg:#c0c0c0"/>
+  <entry type="Operator" style="#666666 bg:#c0c0c0"/>
+  <entry type="OperatorWord" style="bold #aa22ff bg:#c0c0c0"/>
+  <entry type="Comment" style="italic #408080 bg:#c0c0c0"/>
+  <entry type="CommentPreproc" style="noitalic #bc7a00 bg:#c0c0c0"/>
+  <entry type="GenericDeleted" style="#a00000 bg:#c0c0c0"/>
+  <entry type="GenericEmph" style="italic bg:#c0c0c0"/>
+  <entry type="GenericError" style="#ff0000 bg:#c0c0c0"/>
+  <entry type="GenericHeading" style="bold #000080 bg:#c0c0c0"/>
+  <entry type="GenericInserted" style="#00a000 bg:#c0c0c0"/>
+  <entry type="GenericOutput" style="#888888 bg:#c0c0c0"/>
+  <entry type="GenericPrompt" style="bold #000080 bg:#c0c0c0"/>
+  <entry type="GenericStrong" style="bold bg:#c0c0c0"/>
+  <entry type="GenericSubheading" style="bold #800080 bg:#c0c0c0"/>
+  <entry type="GenericTraceback" style="#0044dd bg:#c0c0c0"/>
+  <entry type="GenericUnderline" style="underline bg:#c0c0c0"/>
+  <entry type="TextWhitespace" style="#bbbbbb bg:#c0c0c0"/>
+</style>

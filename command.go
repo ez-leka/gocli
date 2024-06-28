@@ -29,6 +29,7 @@ type Command struct {
 	parent           *Command
 	setByUser        bool
 	validatables     map[string]IValidatable
+	level            int
 }
 
 func (c Command) FullCommand() string {
@@ -48,6 +49,10 @@ func (c *Command) GetPlaceholder() string {
 	return c.Name
 }
 
+func (c *Command) GetLevel() int {
+	return c.level
+}
+
 func (c *Command) GetType() string {
 	return "command"
 }
@@ -58,6 +63,21 @@ func (c *Command) IsHidden() bool {
 
 func (c *Command) IsRequired() bool {
 	return true // if command was parced it was required
+}
+
+// returns printable options
+func (c *Command) Options() []IFlag {
+
+	options := make([]IFlag, 0)
+
+	for _, f := range c.Flags {
+		// do not show inernal flags
+		if f.IsInternal() {
+			continue
+		}
+		options = append(options, f)
+	}
+	return options
 }
 
 // all required flags will be first  followed by all optional flags in every group
@@ -278,7 +298,7 @@ func (c *Command) ActionWrapper(app *Application, in_data interface{}) (interfac
 	var data interface{} = nil
 	var err error = nil
 	if c.Action != nil {
-		data, err = c.Action(app, c, in_data)
+		data, err = c.Action(app, app.context.CurrentCommand, in_data)
 	}
 	return data, err
 }
